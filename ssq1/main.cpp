@@ -47,37 +47,64 @@ int main(int argc, char *argv[])
 	HalfEdge::createHEs(*faces_ptr, vertices_ptr->rows(), &HE_edges, &HE_verts, &HE_faces);
 
 	HalfEdge::vert_t saddles = nullptr;
+	HalfEdge::vert_t maxs = nullptr;
+	HalfEdge::vert_t mins = nullptr;
 	ComplexUtil::vert_type_t vert_types = nullptr;
-	ComplexUtil::findVertexTypes(&saddles, &vert_types, HE_verts, HE_edges, U);
-	
+	ComplexUtil::findVertexTypes(&saddles, &maxs, &mins, &vert_types, HE_verts, HE_edges, U);
+
 	ComplexUtil::steep_lines_t steeplines;
 	steeplines = ComplexUtil::findSteepLines(saddles, vert_types, HE_verts, HE_edges, U);
-	
-	// write all steeplines to obj files
-	int file_cnt = 0;
-	for (auto it = steeplines->begin(); it != steeplines->end(); ++it) {
-		vector<int> steepline = it->second;
-		Eigen::MatrixXd V(steepline.size(), 3);
-		Eigen::MatrixXi F(steepline.size() - 2, 3);
-		int row_id = 0;
-		for (auto sl_it = steepline.begin(); sl_it != steepline.end(); ++sl_it) {
-			V.row(row_id) = vertices_ptr->row(*sl_it);
-			row_id++;
+
+	// iterate over steep lines
+	std::ofstream lines_out("../line_verts.txt");
+	int lines_cnt = 0;
+	lines_out << "verts = [None] * " + std::to_string(steeplines->size());
+	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
+		vector<int> &sl = sl_it->second;
+		lines_out << "verts[" + std::to_string(lines_cnt) + "] = [";
+		for (auto v_it = sl.begin(); v_it != sl.end(); ++v_it) {
+			auto v_loc = (*vertices_ptr).row(*v_it);
+			lines_out << "(" + std::to_string((*vertices_ptr)(*v_it, 0)) + ", "
+				+ std::to_string((*vertices_ptr)(*v_it, 1)) + ", "
+				+ std::to_string((*vertices_ptr)(*v_it, 2)) + "),";
 		}
-		for (int row_id = 0; row_id < steepline.size() - 2; row_id++) {
-			F.row(row_id) << row_id, row_id+1, row_id+2;
-		}
-		string file_name = "../models/lines/strand" + std::to_string(file_cnt) + ".obj";
-		igl::writeOBJ(file_name, V, F);
-		file_cnt++;
+		lines_out << + "]\n";
+		lines_cnt++;
 	}
+	lines_out.close();
 
-	//Eigen::MatrixXd V(3, 3);
-	//Eigen::MatrixXi F(1, 3);
-	//V.row(0) << 0.0, 0.0, 0.0;
-	//V.row(1) << 0.0, 0.2, 0.0;
-	//V.row(2) << 0.0, 0.4, 0.0;
-
-	//F.row(0) << 0, 1, 2;
-	//igl::writeOBJ("strand.obj", V, F);
+	// iterate over points
+	std::ofstream pts_out("../points_verts.txt");
+	int pts_cnt = 0;
+	pts_out << "max_locs = [None] * " + std::to_string(maxs->size()) + "\n";
+	pts_out << "sdl_locs = [None] * " + std::to_string(saddles->size()) + "\n";
+	pts_out << "min_locs = [None] * " + std::to_string(mins->size()) + "\n";
+	for (int pt_type = 0; pt_type < 3; pt_type++) {
+		string array_name;
+		pts_cnt = 0;
+		std::shared_ptr<vector<int>> pt_list;
+		if (pt_type == 0) {
+			pt_list = maxs;
+			array_name = "max_locs";
+		}
+		else if (pt_type == 1) {
+			pt_list = saddles;
+			array_name = "sdl_locs";
+		} 
+		else {
+			pt_list = mins;
+			array_name = "min_locs";
+		}
+		for (auto v_it = pt_list->begin(); v_it != pt_list->end(); ++v_it) {
+			pts_out << array_name + "[" + std::to_string(pts_cnt) + "] = ("
+				+ std::to_string((*vertices_ptr)(*v_it, 0)) + ", "
+				+ std::to_string((*vertices_ptr)(*v_it, 1)) + ", "
+				+ std::to_string((*vertices_ptr)(*v_it, 2)) + ")\n";
+			pts_cnt++;
+		}
+	}
+	
+	pts_out.close();
 }
+
+	
