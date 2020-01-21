@@ -20,4 +20,6 @@ namespace HalfEdge {
 
 	// return neighbors in counter clockwise order
 	vert_t getNeighbors(int v_index, vert_t HE_vert, edge_t HE_edges);
+
+	vert_t getFacesOfV(int v_index, vert_t HE_vert, edge_t HE_edges);
 }

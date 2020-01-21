@@ -62,3 +62,19 @@ HalfEdge::vert_t HalfEdge::getNeighbors(int v_index, HalfEdge::vert_t HE_vert, H
 	return neighbors;
 }
 
+HalfEdge::vert_t HalfEdge::getFacesOfV(int v_index, HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges) {
+	HalfEdge::vert_t neighbors = std::make_shared<std::vector<int>>();
+	int he_index = HE_vert->at(v_index);
+	// append first neighbor
+	neighbors->push_back(HE_edges->at(he_index).face);
+
+	int next_he_indx = HE_edges->at(HE_edges->at(he_index).pair).next;
+	int nb_indx;
+	while (next_he_indx != he_index) {
+		nb_indx = HE_edges->at(next_he_indx).face;
+		neighbors->push_back(nb_indx);
+		next_he_indx = HE_edges->at(HE_edges->at(next_he_indx).pair).next;
+	}
+	return neighbors;
+}
+

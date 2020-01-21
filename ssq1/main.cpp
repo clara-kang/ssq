@@ -105,6 +105,44 @@ int main(int argc, char *argv[])
 	}
 	
 	pts_out.close();
+
+	// write out vertices faces
+	std::ofstream faces_out("../vert_faces.txt");
+	faces_out << "faces = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
+	for (int v_indx = 0; v_indx < vertices_ptr->rows(); v_indx++) {
+		std::shared_ptr<vector<int>> faces = HalfEdge::getFacesOfV(v_indx, HE_verts, HE_edges);
+	
+		faces_out << "faces[" << v_indx << "] = [";
+		for (auto f_it = faces->begin(); f_it != faces->end(); ++f_it) {
+			faces_out << *f_it << ", ";
+		}
+		faces_out << "];" << endl;
+	}
+	faces_out.close();
+
+	std::ofstream col_out("../cols.txt");
+	col_out << "cols = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
+	// assign a color to each vertex based on U, blue -> green -> red
+	double red[3] = { 1.0, 0.0, 0.0 };
+	double green[3] = { 0.0, 1.0, 0.0 };
+	double blue[3] = { 0.0, 0.0, 1.0 };
+	for (int v_indx = 0; v_indx < vertices_ptr->rows(); v_indx++) {
+		double v_col[3];
+		// interpolate from blue to green
+		if (U(v_indx) < 0.5) {
+			for (int i = 0; i < 3; i++) {
+				v_col[i] = 2.0 * (U(v_indx) * green[i] + (0.5 - U(v_indx)) * blue[i]);
+			}
+		}
+		// interpolate from green to red
+		else {
+			for (int i = 0; i < 3; i++) {
+				double val = U(v_indx) - 0.5;
+				v_col[i] = 2.0 * ((0.5 - val) * green[i] + val * red[i]);
+			}
+		}
+		col_out << "cols[" << v_indx << "]=(" << v_col[0] << ", " << v_col[1] << ", " << v_col[2] << ")" << endl;
+	}
 }
 
 	
