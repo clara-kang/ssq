@@ -15,4 +15,6 @@ namespace ComplexUtil {
 
 	steep_lines_t findSteepLines(HalfEdge::vert_t saddles, vert_type_t vert_types,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, Eigen::MatrixXd &U);
+
+	void buildMsPatches();
 }

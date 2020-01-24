@@ -12,7 +12,7 @@
 
 using namespace std;
 
-int EIG_NUM = 1;
+int EIG_NUM = 10;
 
 
 int main(int argc, char *argv[])
@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 	auto vertices_ptr = std::make_shared<Eigen::MatrixXd>();
 	auto faces_ptr = std::make_shared<Eigen::MatrixXi>();
 
-	igl::readOBJ("../models/sphere1.obj", *vertices_ptr, *faces_ptr);
+	igl::readOBJ("../models/sphere3.obj", *vertices_ptr, *faces_ptr);
 
 
 	Eigen::SparseMatrix<double> L, M;
@@ -39,8 +39,14 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	std::ofstream u_file("../U.txt");
 	U = ((U.array() - U.minCoeff()) / (U.maxCoeff() - U.minCoeff())).eval();
+	for (int i = 0; i < U.rows(); i++) {
+		u_file << i << ": (" << vertices_ptr->row(i) << "), U: " << U(i) << endl;
+	}
 	std::cout << "U: " << U << endl;
+	u_file << U << endl;
+	u_file.close();
 
 	std::shared_ptr< std::vector<HalfEdge::HE>> HE_edges = nullptr;
 	std::shared_ptr<std::vector<int>> HE_verts = nullptr, HE_faces = nullptr;
@@ -58,7 +64,7 @@ int main(int argc, char *argv[])
 	// iterate over steep lines
 	std::ofstream lines_out("../line_verts.txt");
 	int lines_cnt = 0;
-	lines_out << "verts = [None] * " + std::to_string(steeplines->size());
+	lines_out << "verts = [None] * " + std::to_string(steeplines->size()) << endl;
 	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
 		vector<int> &sl = sl_it->second;
 		lines_out << "verts[" + std::to_string(lines_cnt) + "] = [";
@@ -106,19 +112,19 @@ int main(int argc, char *argv[])
 	
 	pts_out.close();
 
-	// write out vertices faces
-	std::ofstream faces_out("../vert_faces.txt");
-	faces_out << "faces = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
-	for (int v_indx = 0; v_indx < vertices_ptr->rows(); v_indx++) {
-		std::shared_ptr<vector<int>> faces = HalfEdge::getFacesOfV(v_indx, HE_verts, HE_edges);
-	
-		faces_out << "faces[" << v_indx << "] = [";
-		for (auto f_it = faces->begin(); f_it != faces->end(); ++f_it) {
-			faces_out << *f_it << ", ";
-		}
-		faces_out << "];" << endl;
-	}
-	faces_out.close();
+	//// write out vertices faces
+	//std::ofstream faces_out("../vert_faces.txt");
+	//faces_out << "faces = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
+	//for (int v_indx = 0; v_indx < vertices_ptr->rows(); v_indx++) {
+	//	std::shared_ptr<vector<int>> faces = HalfEdge::getFacesOfV(v_indx, HE_verts, HE_edges);
+	//
+	//	faces_out << "faces[" << v_indx << "] = [";
+	//	for (auto f_it = faces->begin(); f_it != faces->end(); ++f_it) {
+	//		faces_out << *f_it << ", ";
+	//	}
+	//	faces_out << "];" << endl;
+	//}
+	//faces_out.close();
 
 	std::ofstream col_out("../cols.txt");
 	col_out << "cols = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
