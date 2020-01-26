@@ -18,10 +18,21 @@ int EIG_NUM = 10;
 int main(int argc, char *argv[])
 {
 
-	auto vertices_ptr = std::make_shared<Eigen::MatrixXd>();
-	auto faces_ptr = std::make_shared<Eigen::MatrixXi>();
+	//auto vertices_ptr = std::make_shared<Eigen::MatrixXd>();
+	//auto faces_ptr = std::make_shared<Eigen::MatrixXi>();
 
-	igl::readOBJ("../models/sphere3.obj", *vertices_ptr, *faces_ptr);
+	//igl::readOBJ("../models/sphere3.obj", *vertices_ptr, *faces_ptr);
+
+	Eigen::MatrixXd tcs;
+	Eigen::MatrixXi ftcs;
+
+	auto vertices_ptr = std::make_shared<Eigen::MatrixXd>();
+	auto vns_ptr = std::make_shared<Eigen::MatrixXd>();
+	auto faces_ptr = std::make_shared<Eigen::MatrixXi>();
+	auto fns_ptr = std::make_shared<Eigen::MatrixXi>();
+
+	// //Load a mesh in OFF format
+	igl::readOBJ("../models/sphere3.obj", *vertices_ptr, tcs, *vns_ptr, *faces_ptr, ftcs, *fns_ptr);
 
 
 	Eigen::SparseMatrix<double> L, M;
@@ -60,6 +71,8 @@ int main(int argc, char *argv[])
 
 	ComplexUtil::steep_lines_t steeplines;
 	steeplines = ComplexUtil::findSteepLines(saddles, vert_types, HE_verts, HE_edges, U);
+
+	std::vector<std::vector<int>> ms_patches = ComplexUtil::buildMsPatches(steeplines, vertices_ptr, vns_ptr);
 
 	// iterate over steep lines
 	std::ofstream lines_out("../line_verts.txt");

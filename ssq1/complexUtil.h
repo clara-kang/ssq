@@ -3,6 +3,7 @@
 
 #include "HalfEdge.h"
 #pragma once
+
 namespace ComplexUtil {
 	enum VERT_TYPE { SADDLE, MAX, MIN, REG };
 
@@ -16,5 +17,6 @@ namespace ComplexUtil {
 	steep_lines_t findSteepLines(HalfEdge::vert_t saddles, vert_type_t vert_types,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, Eigen::MatrixXd &U);
 
-	void buildMsPatches();
+	std::vector<std::vector<int>> buildMsPatches(steep_lines_t steeplines, std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
+		std::shared_ptr<Eigen::MatrixXd> vns_ptr);
 }

@@ -3,10 +3,14 @@
 #include "complexUtil.h"
 #include <algorithm>
 #include <map>
+#include <cmath>
+
 //#include <tuple>
 
 using namespace ComplexUtil;
 using namespace std;
+
+double PI = 3.1415926;
 
 void ComplexUtil::findVertexTypes(HalfEdge::vert_t *saddles, HalfEdge::vert_t *maxs,
 	HalfEdge::vert_t *mins, vert_type_t *vert_types,
@@ -205,4 +209,116 @@ steep_lines_t ComplexUtil::findSteepLines(HalfEdge::vert_t saddles, vert_type_t 
 	}
 	steep_lines_t steep_lines_ptr = std::make_shared<std::map<std::pair<int, int>, std::vector<int>>>(steeplines);
 	return steep_lines_ptr;
+}
+
+std::vector<std::vector<int>> ComplexUtil::buildMsPatches(steep_lines_t steeplines, std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
+	std::shared_ptr<Eigen::MatrixXd> vns_ptr) {
+
+	// the projections of start to end vectors of sls, perpendicular to vertex normals 
+	std::map<std::pair<int, int>, Eigen::Vector3d> s2e_angl;
+
+	// the half steeplines going out from vertex
+	std::map<int, std::vector<int>> v2_sl;
+
+	// iterate over steeplines
+	for (auto it = steeplines->begin(); it != steeplines->end(); ++it) {
+		// get vertex position of start and end
+		Eigen::Vector3d start = vertices_ptr->row(it->first.first);
+		Eigen::Vector3d end = vertices_ptr->row(it->first.second);
+		// get vertex normal of start and end
+		Eigen::Vector3d start_norm = vns_ptr->row(it->first.first);
+		Eigen::Vector3d end_norm = vns_ptr->row(it->first.second);
+
+		// vector from start to end, projected perpendicular to start normal
+		Eigen::Vector3d s2e = end - start;
+		Eigen::Vector3d s2e_prpndclr = s2e - s2e.dot(start_norm) * start_norm;
+
+		// vector from end to start, projected perpendicular to end normal
+		Eigen::Vector3d e2s = -s2e;
+		Eigen::Vector3d e2s_prpndclr = e2s - e2s.dot(end_norm) * end_norm;
+
+		s2e_angl.insert(s2e_angl.begin(), { it->first, s2e_prpndclr});
+		s2e_angl.insert(s2e_angl.begin(), 
+			{ std::make_pair(it->first.second, it->first.first), e2s_prpndclr });
+	}
+
+	// build v2_sl, the adjacency list
+	for (auto it = s2e_angl.begin(); it != s2e_angl.end(); ++it) {
+		if (v2_sl.find(it->first.first) == v2_sl.end()) {
+			v2_sl.insert(v2_sl.begin(), { it->first.first, std::vector<int>({it->first.second})});
+		}
+		else {
+			v2_sl[it->first.first].push_back(it->first.second);
+		}
+	}
+
+	// patches
+	std::vector<std::vector<int>> ms_patches;
+
+	// filter? indicating whether the sl belongs to a patch
+	std::map<std::pair<int, int>, bool> sl_cover;
+	for (auto it = s2e_angl.begin(); it != s2e_angl.end(); ++it) {
+		sl_cover.insert(sl_cover.begin(), { it->first, false });
+	}
+
+	for (auto v2_sl_it = v2_sl.begin(); v2_sl_it != v2_sl.end(); ++v2_sl_it) {
+		for (auto ends_it = v2_sl_it->second.begin(); ends_it != v2_sl_it->second.end(); ends_it++) {
+
+			// if half sl does not belong to any patch
+			if ( !sl_cover[{v2_sl_it->first, *ends_it}]) {
+
+				int end_vert = *ends_it;
+				int start_vert = v2_sl_it->first;
+				std::vector<int> patch({start_vert, end_vert});
+
+				for (int l_num = 0; l_num < 3; l_num++) {
+
+					// mark sl as dealt with
+					sl_cover[{start_vert, end_vert}] = true;
+
+					// look for the sl that makes the smallest counter clockwise angle with current sl
+					std::map<int, double> end_angles;
+					std::vector<int> &end_nbs = v2_sl[end_vert];
+					for (auto end_nb_it = end_nbs.begin(); end_nb_it != end_nbs.end(); ++end_nb_it) {
+						if (*end_nb_it == start_vert) {
+							continue;
+						}
+						// get ccw angle
+						else {
+							Eigen::Vector3d v1 = -s2e_angl[{end_vert, start_vert}];
+							Eigen::Vector3d v2 = s2e_angl[{end_vert, *end_nb_it}];
+							Eigen::Vector3d end_norm = vns_ptr->row(end_vert);
+						
+							// get angle
+							double angle = acos(v2.dot(v1) / (v1.norm() * v2.norm()));
+							// if angle should be > 180
+							if (end_norm.dot(v1.cross(v2)) < 0) {
+								angle = 2.0 * PI - angle;
+							}
+							// diff between angle and 90 degrees
+							double angle_diff = abs(PI/2.0 - angle);
+							end_angles.insert(end_angles.begin(), { *end_nb_it, angle_diff });
+						}
+					}
+					// find the nb with smallest end_angle
+					double min_angle = INFINITY;
+					int min_nb;
+					for (auto end_angles_it = end_angles.begin(); end_angles_it != end_angles.end(); ++end_angles_it) {
+						if (end_angles_it->second < min_angle) {
+							min_angle = end_angles_it->second;
+							min_nb = end_angles_it->first;
+						}
+					}
+
+					// min_nb is the next vertex in the patch
+					start_vert = end_vert;
+					end_vert = min_nb;
+					patch.push_back(min_nb);
+				}
+				ms_patches.push_back(patch);
+			}
+		}
+	}
+	return ms_patches;
+
 }
