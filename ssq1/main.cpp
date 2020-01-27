@@ -72,8 +72,10 @@ int main(int argc, char *argv[])
 	ComplexUtil::steep_lines_t steeplines;
 	steeplines = ComplexUtil::findSteepLines(saddles, vert_types, HE_verts, HE_edges, U);
 
-	std::vector<std::vector<int>> ms_patches = ComplexUtil::buildMsPatches(steeplines, vertices_ptr, vns_ptr);
+	ComplexUtil::patch_t ms_patches = ComplexUtil::buildMsPatches(steeplines, vertices_ptr, vns_ptr);
 
+	std::shared_ptr<vector<vector<int>>> patch_verts = nullptr;
+	ComplexUtil::fillMsPatches(steeplines, ms_patches, HE_verts, HE_edges, vertices_ptr, vns_ptr, &patch_verts);
 	// iterate over steep lines
 	std::ofstream lines_out("../line_verts.txt");
 	int lines_cnt = 0;

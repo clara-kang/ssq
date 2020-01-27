@@ -211,7 +211,7 @@ steep_lines_t ComplexUtil::findSteepLines(HalfEdge::vert_t saddles, vert_type_t 
 	return steep_lines_ptr;
 }
 
-std::vector<std::vector<int>> ComplexUtil::buildMsPatches(steep_lines_t steeplines, std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
+std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep_lines_t steeplines, std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
 	std::shared_ptr<Eigen::MatrixXd> vns_ptr) {
 
 	// the projections of start to end vectors of sls, perpendicular to vertex normals 
@@ -319,6 +319,111 @@ std::vector<std::vector<int>> ComplexUtil::buildMsPatches(steep_lines_t steeplin
 			}
 		}
 	}
-	return ms_patches;
+	std::shared_ptr<vector<vector<int>>> ms_patch_ptr = std::make_shared<vector<vector<int>>>(ms_patches);
+	return ms_patch_ptr;
+}
 
+vector<int> &find_sl(steep_lines_t steeplines, int start_vert, int end_vert, bool *reversed) {
+	auto sl_it = steeplines->find({ start_vert, end_vert });
+	if (sl_it != steeplines->end()) {
+		vector<int> &sl = steeplines->at({ start_vert, end_vert });
+		*reversed = false;
+		return sl;
+	}
+	else {
+		vector<int> &sl = steeplines->at({ end_vert, start_vert });
+		*reversed = true;
+		return sl;
+	}
+}
+
+int find_sl_id(int cur_vert, const steep_lines_t steeplines,
+	const vector<int> &patch_nodes) {
+	bool reversed;
+	for (int i = 0; i < 4; i++) {
+		vector<int> &sl = find_sl(steeplines, patch_nodes[i], patch_nodes[(i + 1) % 4], &reversed);
+		if (std::find(sl.begin(), sl.end(), cur_vert) != sl.end()) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void graphSearchRec(const steep_lines_t steeplines, int cur_vert,
+	HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges, 
+	const vector<int> &patch_nodes, vector<int> &patch_verts, int sl_id, vector<bool> &visited) {
+	
+	if (!visited[cur_vert]) {
+		int cur_line_id = find_sl_id(cur_vert, steeplines, patch_nodes);
+		// if reach corner, stop
+		if (cur_line_id >= 0 && std::find(patch_nodes.begin(), patch_nodes.end(), cur_vert) != patch_nodes.end()) {
+			visited[cur_vert] = true;
+			patch_verts.push_back(cur_vert);
+			return;
+		}
+		// only allow to progress along boundary
+
+		if (sl_id >= 0 && sl_id != cur_line_id) {
+			return;
+		}
+
+		visited[cur_vert] = true;
+		patch_verts.push_back(cur_vert);
+		// get neighbors
+		HalfEdge::vert_t nbs = HalfEdge::getNeighbors(cur_vert, HE_vert, HE_edges);
+		patch_verts.push_back(cur_vert);
+		for (auto nb_it = nbs->begin(); nb_it != nbs->end(); ++nb_it) {
+			graphSearchRec(steeplines, *nb_it, HE_vert, HE_edges, patch_nodes, patch_verts,
+				cur_line_id, visited);
+		}
+	}
+}
+
+void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
+	HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges, 
+	std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
+	std::shared_ptr<Eigen::MatrixXd> vns_ptr,
+	std::shared_ptr<vector<vector<int>>> *patch_verts) {
+
+	vector<vector<int>> patches_vertices(ms_patches->size());
+	int cnt = 0;
+	for (auto patch_it = ms_patches->begin(); patch_it != ms_patches->end(); patch_it++) {
+		// get vertex on the left side of the first steepline as start
+		bool reversed; // whether the sl should be reversed
+		vector<int> &first_sl = find_sl(steeplines, (*patch_it)[0], (*patch_it)[1], &reversed);
+		int mid_vert = first_sl[first_sl.size() / 2];
+		// next vert after mid vert
+		int next_vert;
+		if (reversed) {
+			next_vert = first_sl[first_sl.size() / 2 - 1];
+		}
+		else {
+			next_vert = first_sl[first_sl.size() / 2 + 1];
+		}
+		
+		// get neighbors of mid vertex
+		HalfEdge::vert_t mid_vert_nbs = HalfEdge::getNeighbors(mid_vert, HE_vert, HE_edges);
+		Eigen::Vector3d v1 = vertices_ptr->row(next_vert) - vertices_ptr->row(mid_vert);
+		Eigen::Vector3d mid_norm = vns_ptr->row(mid_vert);
+
+		int inside_vert = -1;
+		// find a nb that is on the left of sl
+		for (auto nb_it = mid_vert_nbs->begin(); nb_it != mid_vert_nbs->end(); ++nb_it) {
+			Eigen::Vector3d v2 = vertices_ptr->row(*nb_it) - vertices_ptr->row(mid_vert);
+			if ((v1.cross(v2)).dot(mid_norm) > 0) {
+				inside_vert = *nb_it;
+				break;
+			}
+		}
+	
+		vector<int> patch_verts;
+		vector<bool> visited(vertices_ptr->rows());
+		cout << "inside_vert: " << inside_vert << endl;
+		graphSearchRec(steeplines, inside_vert, HE_vert, HE_edges,
+			*patch_it, patch_verts, -1, visited);
+		patches_vertices[cnt] = patch_verts;
+		cnt++;
+	}
+	shared_ptr<vector<vector<int>>> patches_vertices_ptr = std::make_shared<vector<vector<int>>>(patches_vertices);
+	swap(*patch_verts, patches_vertices_ptr);
 }
