@@ -1,15 +1,38 @@
 import bpy
+import random
 
-line_mat = bpy.data.materials.get("line_mat")
-if not line_mat:
-    line_mat = bpy.data.materials.new("line_mat")
-    line_mat.diffuse_color = (0.0, 1.0, 0.0)
-    line_mat.type = 'WIRE'
+def getRandomColor():
+    return (random.random(), random.random(), random.random())
 
-cube_obj = bpy.data.objects['Cube']
+mats = [None] * len(patch_ids)
 
-if line_mat.name not in cube_obj.data.materials:
-    cube_obj.data.materials.append( line_mat )
+patch_num = max(patch_ids)+1
 
-for i in range (0, len(cube_obj.data.polygons), 2):
-    cube_obj.data.polygons[i].material_index = 1
+# init mats
+for mat_id in range (patch_num) :
+    mats[mat_id] = bpy.data.materials.get("patch_mat_" + str(mat_id))
+    if not mats[mat_id]:
+        mats[mat_id] = bpy.data.materials.new("patch_mat_" + str(mat_id))
+        mats[mat_id].diffuse_color = getRandomColor()
+
+obj = bpy.data.objects['Sphere3']
+
+for mat_id in range (patch_num) :
+    if mats[mat_id].name not in obj.data.materials:
+        obj.data.materials.append( mats[mat_id] )
+
+# clear
+for i in range (0, len(obj.data.polygons)):
+    poly = obj.data.polygons[i]
+    poly.material_index = 0
+
+for i in range (0, len(obj.data.polygons)):
+    poly = obj.data.polygons[i]
+    for v_indx in poly.vertices:
+        if v_indx in sl_verts:
+            print ("skip!")
+            continue
+        else:
+            patch_id = patch_ids[v_indx]
+            poly.material_index = patch_id
+            break

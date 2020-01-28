@@ -75,7 +75,38 @@ int main(int argc, char *argv[])
 	ComplexUtil::patch_t ms_patches = ComplexUtil::buildMsPatches(steeplines, vertices_ptr, vns_ptr);
 
 	std::shared_ptr<vector<vector<int>>> patch_verts = nullptr;
+	std::vector<int> vert_patch_ids(vertices_ptr->rows());
+
 	ComplexUtil::fillMsPatches(steeplines, ms_patches, HE_verts, HE_edges, vertices_ptr, vns_ptr, &patch_verts);
+
+	// write patch verts
+	int patch_cnt = 0;
+	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
+		for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
+			vert_patch_ids[*vert_it] = patch_cnt;
+		}
+		patch_cnt++;
+	}
+	
+	// write patch verts out
+	std::ofstream patches_out("../patches.txt");
+	patches_out << "patch_ids = [";
+	for (int i = 0; i < vert_patch_ids.size(); i++) {
+		patches_out << vert_patch_ids[i] << ", ";
+	}
+	patches_out << "]" << endl;
+
+	// write indices of verts on steeplines
+	std::ofstream sl_vert_id_out("../sl_vert_ids.txt");
+	sl_vert_id_out << "sl_verts = [";
+	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
+		vector<int> &sl = sl_it->second;
+		for (auto v_it = sl.begin(); v_it != sl.end(); ++v_it) {
+			sl_vert_id_out << *v_it << ", ";
+		}
+	}
+	sl_vert_id_out << "]" << endl;
+
 	// iterate over steep lines
 	std::ofstream lines_out("../line_verts.txt");
 	int lines_cnt = 0;
