@@ -328,15 +328,16 @@ vector<int> &find_sl(steep_lines_t steeplines, int start_vert, int end_vert, boo
 	if (sl_it != steeplines->end()) {
 		vector<int> &sl = steeplines->at({ start_vert, end_vert });
 		*reversed = false;
-		return sl;
+return sl;
 	}
 	else {
-		vector<int> &sl = steeplines->at({ end_vert, start_vert });
-		*reversed = true;
-		return sl;
+	vector<int> &sl = steeplines->at({ end_vert, start_vert });
+	*reversed = true;
+	return sl;
 	}
 }
 
+// given a specific patch, return the index (the ith) of the steepline in the patch
 int find_sl_id(int cur_vert, const steep_lines_t steeplines,
 	const vector<int> &patch_nodes) {
 	bool reversed;
@@ -350,9 +351,9 @@ int find_sl_id(int cur_vert, const steep_lines_t steeplines,
 }
 
 void graphSearchRec(const steep_lines_t steeplines, int cur_vert,
-	HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges, 
+	HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges,
 	const vector<int> &patch_nodes, vector<int> &patch_verts, int sl_id, vector<bool> &visited) {
-	
+
 	if (!visited[cur_vert]) {
 		int cur_line_id = find_sl_id(cur_vert, steeplines, patch_nodes);
 		// if reach corner, stop
@@ -371,7 +372,7 @@ void graphSearchRec(const steep_lines_t steeplines, int cur_vert,
 		patch_verts.push_back(cur_vert);
 		// get neighbors
 		HalfEdge::vert_t nbs = HalfEdge::getNeighbors(cur_vert, HE_vert, HE_edges);
-		patch_verts.push_back(cur_vert);
+
 		for (auto nb_it = nbs->begin(); nb_it != nbs->end(); ++nb_it) {
 			graphSearchRec(steeplines, *nb_it, HE_vert, HE_edges, patch_nodes, patch_verts,
 				cur_line_id, visited);
@@ -380,7 +381,7 @@ void graphSearchRec(const steep_lines_t steeplines, int cur_vert,
 }
 
 void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
-	HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges, 
+	HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges,
 	std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
 	std::shared_ptr<Eigen::MatrixXd> vns_ptr,
 	std::shared_ptr<vector<vector<int>>> *patch_verts) {
@@ -400,7 +401,7 @@ void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
 		else {
 			next_vert = first_sl[first_sl.size() / 2 + 1];
 		}
-		
+
 		// get neighbors of mid vertex
 		HalfEdge::vert_t mid_vert_nbs = HalfEdge::getNeighbors(mid_vert, HE_vert, HE_edges);
 		Eigen::Vector3d v1 = vertices_ptr->row(next_vert) - vertices_ptr->row(mid_vert);
@@ -415,9 +416,9 @@ void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
 				break;
 			}
 		}
-	
+
 		vector<int> patch_verts;
-		vector<bool> visited(vertices_ptr->rows());
+		vector<bool> visited(vertices_ptr->rows(), false);
 		cout << "inside_vert: " << inside_vert << endl;
 		graphSearchRec(steeplines, inside_vert, HE_vert, HE_edges,
 			*patch_it, patch_verts, -1, visited);
@@ -426,4 +427,29 @@ void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
 	}
 	shared_ptr<vector<vector<int>>> patches_vertices_ptr = std::make_shared<vector<vector<int>>>(patches_vertices);
 	swap(*patch_verts, patches_vertices_ptr);
+}
+
+bool ComplexUtil::patchValidityCheck(std::shared_ptr<vector<vector<int>>> patch_verts, 
+	int N, const vector<int> &verts_on_sls) {
+	vector<int> vert_patch_ids(N, -1);
+	int patch_cnt = 0;
+	bool valid = true;
+	int dup = 0;
+	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
+		for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
+			// if vertex is not on any steepline, it can only appear in one patch
+			if (std::find(verts_on_sls.begin(), verts_on_sls.end(), *vert_it) == verts_on_sls.end()) {
+				// it already belongs to a patch
+				if (vert_patch_ids[*vert_it] >= 0) {
+					valid = false;
+					cout << "collision patch " << vert_patch_ids[*vert_it] << ", and patch " << patch_cnt << endl;
+					dup++;
+				}
+			}
+			vert_patch_ids[*vert_it] = patch_cnt;
+		}
+		patch_cnt++;
+	}
+
+	return valid;
 }

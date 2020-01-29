@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	// //Load a mesh in OFF format
 	igl::readOBJ("../models/sphere3.obj", *vertices_ptr, tcs, *vns_ptr, *faces_ptr, ftcs, *fns_ptr);
 
-
+	//cout << "trouble pt: " << vertices_ptr->row(102) << endl;
 	Eigen::SparseMatrix<double> L, M;
 	igl::cotmatrix(*vertices_ptr, *faces_ptr, L);
 	L = (-L).eval();
@@ -75,9 +75,20 @@ int main(int argc, char *argv[])
 	ComplexUtil::patch_t ms_patches = ComplexUtil::buildMsPatches(steeplines, vertices_ptr, vns_ptr);
 
 	std::shared_ptr<vector<vector<int>>> patch_verts = nullptr;
-	std::vector<int> vert_patch_ids(vertices_ptr->rows());
+	std::vector<int> vert_patch_ids(vertices_ptr->rows(), -1);
 
 	ComplexUtil::fillMsPatches(steeplines, ms_patches, HE_verts, HE_edges, vertices_ptr, vns_ptr, &patch_verts);
+
+	// all vertices on steeplines, including duplicates
+	vector<int> verts_on_sls;
+	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
+		vector<int> &sl = sl_it->second;
+		for (auto v_it = sl.begin(); v_it != sl.end(); ++v_it) {
+			verts_on_sls.push_back(*v_it);
+		}
+	}
+
+	bool patches_valid = ComplexUtil::patchValidityCheck(patch_verts, vertices_ptr->rows(), verts_on_sls);
 
 	// write patch verts
 	int patch_cnt = 0;
@@ -99,12 +110,11 @@ int main(int argc, char *argv[])
 	// write indices of verts on steeplines
 	std::ofstream sl_vert_id_out("../sl_vert_ids.txt");
 	sl_vert_id_out << "sl_verts = [";
-	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
-		vector<int> &sl = sl_it->second;
-		for (auto v_it = sl.begin(); v_it != sl.end(); ++v_it) {
-			sl_vert_id_out << *v_it << ", ";
-		}
+
+	for (auto v_it = verts_on_sls.begin(); v_it != verts_on_sls.end(); ++v_it) {
+		sl_vert_id_out << *v_it << ", ";
 	}
+
 	sl_vert_id_out << "]" << endl;
 
 	// iterate over steep lines
