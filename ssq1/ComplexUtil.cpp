@@ -315,6 +315,7 @@ std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep
 					end_vert = min_nb;
 					patch.push_back(min_nb);
 				}
+				sl_cover[{start_vert, end_vert}] = true;
 				ms_patches.push_back(patch);
 			}
 		}
@@ -328,12 +329,12 @@ vector<int> &find_sl(steep_lines_t steeplines, int start_vert, int end_vert, boo
 	if (sl_it != steeplines->end()) {
 		vector<int> &sl = steeplines->at({ start_vert, end_vert });
 		*reversed = false;
-return sl;
+		return sl;
 	}
 	else {
-	vector<int> &sl = steeplines->at({ end_vert, start_vert });
-	*reversed = true;
-	return sl;
+		vector<int> &sl = steeplines->at({ end_vert, start_vert });
+		*reversed = true;
+		return sl;
 	}
 }
 
@@ -404,18 +405,12 @@ void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
 
 		// get neighbors of mid vertex
 		HalfEdge::vert_t mid_vert_nbs = HalfEdge::getNeighbors(mid_vert, HE_vert, HE_edges);
-		Eigen::Vector3d v1 = vertices_ptr->row(next_vert) - vertices_ptr->row(mid_vert);
-		Eigen::Vector3d mid_norm = vns_ptr->row(mid_vert);
 
-		int inside_vert = -1;
-		// find a nb that is on the left of sl
-		for (auto nb_it = mid_vert_nbs->begin(); nb_it != mid_vert_nbs->end(); ++nb_it) {
-			Eigen::Vector3d v2 = vertices_ptr->row(*nb_it) - vertices_ptr->row(mid_vert);
-			if ((v1.cross(v2)).dot(mid_norm) > 0) {
-				inside_vert = *nb_it;
-				break;
-			}
-		}
+		// find index of next_vert in mid_vert_nbs
+		auto next_v_it = std::find(mid_vert_nbs->begin(), mid_vert_nbs->end(), next_vert);
+		int next_v_indx = std::distance(mid_vert_nbs->begin(), next_v_it);
+		// get next vertex ccw, it should be a vertex in the patch
+		int inside_vert = mid_vert_nbs->at((next_v_indx - 1 + mid_vert_nbs->size()) % mid_vert_nbs->size());
 
 		vector<int> patch_verts;
 		vector<bool> visited(vertices_ptr->rows(), false);

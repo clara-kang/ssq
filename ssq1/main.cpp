@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < U.rows(); i++) {
 		u_file << i << ": (" << vertices_ptr->row(i) << "), U: " << U(i) << endl;
 	}
-	std::cout << "U: " << U << endl;
+	//std::cout << "U: " << U << endl;
 	u_file << U << endl;
 	u_file.close();
 
@@ -93,9 +93,11 @@ int main(int argc, char *argv[])
 	// write patch verts
 	int patch_cnt = 0;
 	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
-		for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
-			vert_patch_ids[*vert_it] = patch_cnt;
-		}
+		//if (patch_cnt == 11) {
+			for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
+				vert_patch_ids[*vert_it] = patch_cnt;
+			}
+		//}
 		patch_cnt++;
 	}
 	
