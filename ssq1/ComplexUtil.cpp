@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <map>
 #include <cmath>
+#include <queue>
 
 //#include <tuple>
 
@@ -11,6 +12,26 @@ using namespace ComplexUtil;
 using namespace std;
 
 double PI = 3.1415926;
+
+
+std::map<std::pair<int, int>, trnsfr_func_t> line_match_to_func = {
+		{{0, 2}, {false, {1, 1}, {0, 1}}},
+		{{2, 0}, {false, {1, 1}, {0, -1}}},
+		{{0, 3}, {true, {-1, 1}, {0, 0}}},
+		{{3, 0}, {true, {1, -1}, {0, 0}}},
+		{{0, 0}, {false, {-1, -1}, {1, 0}}},
+		{{0, 1}, {true, {1, -1}, {1, 1}}},
+		{{1, 0}, {true, {-1, 1}, {1, -1}}},
+		{{1, 3}, {false, {1, 1}, {-1, 0}}},
+		{{3, 1}, {false, {1, 1}, {1, 0}}},
+		{{1, 1}, {false, {-1, -1}, {2, 1}}},
+		{{1, 2}, {true, {1, -1}, {0, 2}}},
+		{{2, 1}, {true, {-1, 1}, {2, 0}}},
+		{{2, 2}, {false, {-1, -1}, {1, 2}}},
+		{{2, 3}, {true, {1, -1}, {-1, 1}}},
+		{{3, 2}, {true, {-1, 1}, {1, 1}}},
+		{{3, 3}, {false, {-1, -1}, {0, 1}}}
+};
 
 void ComplexUtil::findVertexTypes(HalfEdge::vert_t *saddles, HalfEdge::vert_t *maxs,
 	HalfEdge::vert_t *mins, vert_type_t *vert_types,
@@ -351,32 +372,42 @@ int find_sl_id(int cur_vert, const steep_lines_t steeplines,
 	return -1;
 }
 
-void graphSearchRec(const steep_lines_t steeplines, int cur_vert,
+void graphSearchRec(const steep_lines_t steeplines, int start_vert,
 	HalfEdge::vert_t HE_vert, HalfEdge::edge_t HE_edges,
-	const vector<int> &patch_nodes, vector<int> &patch_verts, int sl_id, vector<bool> &visited) {
+	const vector<int> &patch_nodes, vector<int> &patch_verts, vector<bool> &visited) {
 
-	if (!visited[cur_vert]) {
-		int cur_line_id = find_sl_id(cur_vert, steeplines, patch_nodes);
-		// if reach corner, stop
-		if (cur_line_id >= 0 && std::find(patch_nodes.begin(), patch_nodes.end(), cur_vert) != patch_nodes.end()) {
+	std::queue<int> to_visit({ start_vert });
+
+	while (!to_visit.empty()) {
+		int cur_vert = to_visit.front();
+		to_visit.pop();
+
+		if (!visited[cur_vert]) {
 			visited[cur_vert] = true;
 			patch_verts.push_back(cur_vert);
-			return;
-		}
-		// only allow to progress along boundary
+			int cur_line_id = find_sl_id(cur_vert, steeplines, patch_nodes);
+			// if reach corner, stop
+			if (cur_line_id >= 0 && std::find(patch_nodes.begin(), patch_nodes.end(), cur_vert) != patch_nodes.end()) {
+				continue;
+			}
+			// only allow to progress along boundary
+			else if (cur_line_id >= 0) {
+				bool rev;
+				// push next and prec on sl
+				vector<int> &sl = find_sl(steeplines, patch_nodes[cur_line_id],
+					patch_nodes[(cur_line_id + 1) % 4], &rev);
+				auto cur_id_in_sl = std::find(sl.begin(), sl.end(), cur_vert);
+				to_visit.push(*(cur_id_in_sl - 1));
+				to_visit.push(*(cur_id_in_sl + 1));
+			}
+			else {
+				// get neighbors
+				HalfEdge::vert_t nbs = HalfEdge::getNeighbors(cur_vert, HE_vert, HE_edges);
 
-		if (sl_id >= 0 && sl_id != cur_line_id) {
-			return;
-		}
-
-		visited[cur_vert] = true;
-		patch_verts.push_back(cur_vert);
-		// get neighbors
-		HalfEdge::vert_t nbs = HalfEdge::getNeighbors(cur_vert, HE_vert, HE_edges);
-
-		for (auto nb_it = nbs->begin(); nb_it != nbs->end(); ++nb_it) {
-			graphSearchRec(steeplines, *nb_it, HE_vert, HE_edges, patch_nodes, patch_verts,
-				cur_line_id, visited);
+				for (auto nb_it = nbs->begin(); nb_it != nbs->end(); ++nb_it) {
+					to_visit.push(*nb_it);
+				}
+			}
 		}
 	}
 }
@@ -416,7 +447,7 @@ void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
 		vector<bool> visited(vertices_ptr->rows(), false);
 		cout << "inside_vert: " << inside_vert << endl;
 		graphSearchRec(steeplines, inside_vert, HE_vert, HE_edges,
-			*patch_it, patch_verts, -1, visited);
+			*patch_it, patch_verts, visited);
 		patches_vertices[cnt] = patch_verts;
 		cnt++;
 	}
@@ -448,3 +479,76 @@ bool ComplexUtil::patchValidityCheck(std::shared_ptr<vector<vector<int>>> patch_
 
 	return valid;
 }
+
+std::pair<int, int> getSlKey(steep_lines_t steeplines, std::pair<int, int> sl_id) {
+	auto sl_it = steeplines->find(sl_id);
+	if (sl_it != steeplines->end()) {
+		return sl_id;
+	}
+	else {
+		return { sl_id.second, sl_id.first };
+	}
+}
+
+steep_lines_t ComplexUtil::buildSLtoPatchMap(steep_lines_t steeplines, patch_t ms_patches) {
+	std::map<std::pair<int, int>, std::vector<int>> sl_patch_map;
+	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
+		sl_patch_map.insert(sl_patch_map.begin(), { sl_it->first, std::vector<int>({}) });
+	}
+	
+	for (int patch_cnt = 0; patch_cnt < ms_patches->size(); patch_cnt ++) {
+		for (int i = 0; i < 4; i++) {
+			int s = ms_patches->at(patch_cnt)[i];
+			int e = ms_patches->at(patch_cnt)[(i+1)%4];
+			sl_patch_map[getSlKey(steeplines, { s, e })].push_back(patch_cnt);
+		}
+	}
+	std::shared_ptr <std::map<std::pair<int, int>, std::vector<int>>> ptr
+		= std::make_shared<std::map<std::pair<int, int>, std::vector<int>>>(sl_patch_map);
+	steep_lines_t sl_patch_map_ptr = ptr;
+	return sl_patch_map_ptr;
+}
+
+int which_line(std::vector<int> &patch, int start, int end) {
+	for (int i = 0; i < 4; i++) {
+		if (patch[i] == start && patch[(i + 1) % 4 == end]) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+int getNbPatchId(steep_lines_t steep_lines, steep_lines_t sl_patch_map, int self_id, int start, int end) {
+	vector<int> &ids = sl_patch_map->at(getSlKey(steep_lines, {start, end}));
+	if (ids[0] == self_id) {
+		return ids[1];
+	}
+	return ids[0];
+}
+
+trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t steeplines, 
+	steep_lines_t sl_patch_map, patch_t ms_patches, patch_t *patch_graph_in) {
+	std::map<std::pair<int, int>, trnsfr_func_t> trnsfr_funcs_map;
+	std::vector<std::vector<int>> patch_graph(ms_patches->size(), std::vector<int>({0, 0, 0, 0}));
+	int patch_cnt = 0;
+	for (auto patch_it = ms_patches->begin(); patch_it != ms_patches->end(); patch_it++) {
+		for (int line_id = 0; line_id < 4; line_id++) {
+			int nb_start = (*patch_it)[(line_id + 1) % 4];
+			int nb_end = (*patch_it)[line_id];
+			int nb_patch_id = getNbPatchId(steeplines, sl_patch_map, patch_cnt, nb_start, nb_end);
+			int nb_line_id = which_line(ms_patches->at(nb_patch_id), nb_start, nb_end);
+			trnsfr_funcs_map.insert(trnsfr_funcs_map.begin(), 
+				{ { patch_cnt, nb_patch_id }, line_match_to_func[{line_id, nb_line_id}] });
+			patch_graph[patch_cnt][line_id] = nb_patch_id;
+		}
+		patch_cnt++;
+	}
+	std::shared_ptr<std::map<std::pair<int, int>, trnsfr_func_t>> ptr =
+		std::make_shared<std::map<std::pair<int, int>, trnsfr_func_t>>(trnsfr_funcs_map);
+	trnsfr_funcs_map_t trnsfr_funcs_map_ptr = ptr;
+	std::shared_ptr<std::vector<std::vector<int>>> ptr2 = std::make_shared<std::vector<std::vector<int>>>(patch_graph);
+	patch_t patch_graph_ptr = ptr2;
+	std::swap(*patch_graph_in, patch_graph_ptr);
+	return trnsfr_funcs_map_ptr;
+}
+

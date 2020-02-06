@@ -12,8 +12,10 @@
 
 using namespace std;
 
-int EIG_NUM = 10;
+//int EIG_NUM = 10;
+int EIG_NUM = 20;
 
+bool LOAD_U = true;
 
 int main(int argc, char *argv[])
 {
@@ -32,7 +34,7 @@ int main(int argc, char *argv[])
 	auto fns_ptr = std::make_shared<Eigen::MatrixXi>();
 
 	// //Load a mesh in OFF format
-	igl::readOBJ("../models/sphere3.obj", *vertices_ptr, tcs, *vns_ptr, *faces_ptr, ftcs, *fns_ptr);
+	igl::readOBJ("../models/high_sphere.obj", *vertices_ptr, tcs, *vns_ptr, *faces_ptr, ftcs, *fns_ptr);
 
 	//cout << "trouble pt: " << vertices_ptr->row(102) << endl;
 	Eigen::SparseMatrix<double> L, M;
@@ -44,20 +46,39 @@ int main(int argc, char *argv[])
 	Eigen::MatrixXd U;
 	Eigen::VectorXd D;
 	//igl::eigs(L, M, 5, igl::EIGS_TYPE_SM, U, D);
-	if (!igl::eigs(L, M, EIG_NUM, igl::EIGS_TYPE_SM, U, D))
-	{
-		cout << "failed." << endl;
-		exit(1);
+	if (LOAD_U) {
+		U = Eigen::MatrixXd(vertices_ptr->rows(), 1);
+		std::string line;
+		std::ifstream rfile;
+		rfile.open("../U.txt");
+		if (rfile.is_open()) {
+			int line_num = 0;
+			while (std::getline(rfile, line)) {
+				U(line_num) = stod(line);
+				//cout << "U(line_num): " << U(line_num) << endl;
+				line_num++;
+			}
+			rfile.close();
+		}
 	}
-
-	std::ofstream u_file("../U.txt");
-	U = ((U.array() - U.minCoeff()) / (U.maxCoeff() - U.minCoeff())).eval();
-	for (int i = 0; i < U.rows(); i++) {
-		u_file << i << ": (" << vertices_ptr->row(i) << "), U: " << U(i) << endl;
+	else {
+		if (!igl::eigs(L, M, EIG_NUM, igl::EIGS_TYPE_SM, U, D))
+		{
+			cout << "failed." << endl;
+			exit(1);
+		}
+		std::ofstream u_file("../U.txt");
+		U = ((U.array() - U.minCoeff()) / (U.maxCoeff() - U.minCoeff())).eval();
+		for (int i = 0; i < U.rows(); i++) {
+			u_file << U(i) << endl;
+		}
+		//std::cout << "U: " << U << endl;
+		//u_file << U << endl;
+		u_file.close();
 	}
-	//std::cout << "U: " << U << endl;
-	u_file << U << endl;
-	u_file.close();
+	//for (int i = 0; i < vertices_ptr->rows(); i++) {
+	//	cout << "U(i)" << U(i) << endl;
+	//}
 
 	std::shared_ptr< std::vector<HalfEdge::HE>> HE_edges = nullptr;
 	std::shared_ptr<std::vector<int>> HE_verts = nullptr, HE_faces = nullptr;
@@ -75,7 +96,7 @@ int main(int argc, char *argv[])
 	ComplexUtil::patch_t ms_patches = ComplexUtil::buildMsPatches(steeplines, vertices_ptr, vns_ptr);
 
 	std::shared_ptr<vector<vector<int>>> patch_verts = nullptr;
-	std::vector<int> vert_patch_ids(vertices_ptr->rows(), -1);
+ 	std::vector<int> vert_patch_ids(vertices_ptr->rows(), -1);
 
 	ComplexUtil::fillMsPatches(steeplines, ms_patches, HE_verts, HE_edges, vertices_ptr, vns_ptr, &patch_verts);
 
@@ -90,34 +111,40 @@ int main(int argc, char *argv[])
 
 	bool patches_valid = ComplexUtil::patchValidityCheck(patch_verts, vertices_ptr->rows(), verts_on_sls);
 
-	// write patch verts
-	int patch_cnt = 0;
-	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
-		//if (patch_cnt == 11) {
-			for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
-				vert_patch_ids[*vert_it] = patch_cnt;
-			}
-		//}
-		patch_cnt++;
-	}
+	ComplexUtil::steep_lines_t sl_patch_map = ComplexUtil::buildSLtoPatchMap(steeplines, ms_patches);
+
+	ComplexUtil::patch_t patch_graph = nullptr;
+	ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map =
+		ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steeplines, sl_patch_map, ms_patches, &patch_graph);
+
+	// //write patch verts
+	//int patch_cnt = 0;
+	//for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
+	//	//if (patch_cnt == 11) {
+	//		for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
+	//			vert_patch_ids[*vert_it] = patch_cnt;
+	//		}
+	//	//}
+	//	patch_cnt++;
+	//}
 	
-	// write patch verts out
-	std::ofstream patches_out("../patches.txt");
-	patches_out << "patch_ids = [";
-	for (int i = 0; i < vert_patch_ids.size(); i++) {
-		patches_out << vert_patch_ids[i] << ", ";
-	}
-	patches_out << "]" << endl;
+	//// write patch verts out
+	//std::ofstream patches_out("../patches.txt");
+	//patches_out << "patch_ids = [";
+	//for (int i = 0; i < vert_patch_ids.size(); i++) {
+	//	patches_out << vert_patch_ids[i] << ", ";
+	//}
+	//patches_out << "]" << endl;
 
-	// write indices of verts on steeplines
-	std::ofstream sl_vert_id_out("../sl_vert_ids.txt");
-	sl_vert_id_out << "sl_verts = [";
+	//// write indices of verts on steeplines
+	//std::ofstream sl_vert_id_out("../sl_vert_ids.txt");
+	//sl_vert_id_out << "sl_verts = [";
 
-	for (auto v_it = verts_on_sls.begin(); v_it != verts_on_sls.end(); ++v_it) {
-		sl_vert_id_out << *v_it << ", ";
-	}
+	//for (auto v_it = verts_on_sls.begin(); v_it != verts_on_sls.end(); ++v_it) {
+	//	sl_vert_id_out << *v_it << ", ";
+	//}
 
-	sl_vert_id_out << "]" << endl;
+	//sl_vert_id_out << "]" << endl;
 
 	// iterate over steep lines
 	std::ofstream lines_out("../line_verts.txt");
@@ -169,20 +196,6 @@ int main(int argc, char *argv[])
 	}
 	
 	pts_out.close();
-
-	//// write out vertices faces
-	//std::ofstream faces_out("../vert_faces.txt");
-	//faces_out << "faces = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
-	//for (int v_indx = 0; v_indx < vertices_ptr->rows(); v_indx++) {
-	//	std::shared_ptr<vector<int>> faces = HalfEdge::getFacesOfV(v_indx, HE_verts, HE_edges);
-	//
-	//	faces_out << "faces[" << v_indx << "] = [";
-	//	for (auto f_it = faces->begin(); f_it != faces->end(); ++f_it) {
-	//		faces_out << *f_it << ", ";
-	//	}
-	//	faces_out << "];" << endl;
-	//}
-	//faces_out.close();
 
 	std::ofstream col_out("../cols.txt");
 	col_out << "cols = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
