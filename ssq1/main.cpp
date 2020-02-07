@@ -30,13 +30,22 @@ int main(int argc, char *argv[])
 
 	auto vertices_ptr = std::make_shared<Eigen::MatrixXd>();
 	auto vns_ptr = std::make_shared<Eigen::MatrixXd>();
+	auto N = std::make_shared<Eigen::MatrixXd>();
 	auto faces_ptr = std::make_shared<Eigen::MatrixXi>();
 	auto fns_ptr = std::make_shared<Eigen::MatrixXi>();
 
 	// //Load a mesh in OFF format
-	igl::readOBJ("../models/high_sphere.obj", *vertices_ptr, tcs, *vns_ptr, *faces_ptr, ftcs, *fns_ptr);
+	igl::readOBJ("../models/high_sphere.obj", *vertices_ptr, tcs, *N, *faces_ptr, ftcs, *fns_ptr);
 
-	//cout << "trouble pt: " << vertices_ptr->row(102) << endl;
+	// todo: fix later
+	vns_ptr = vertices_ptr;
+	cout << "vertices_ptr size: " << vertices_ptr->rows() << endl;
+	cout << "vns_ptr size: " << vns_ptr->rows() << endl;
+	//for (int i = 0; i < vns_ptr->rows(); i++) {
+	//	vns_ptr->row(i) = vertices_ptr->row(i).normalized();
+	//	cout << "vn[" << i << "]: " << vns_ptr->row(i) << endl;;
+	//}
+
 	Eigen::SparseMatrix<double> L, M;
 	igl::cotmatrix(*vertices_ptr, *faces_ptr, L);
 	L = (-L).eval();
@@ -94,6 +103,7 @@ int main(int argc, char *argv[])
 	steeplines = ComplexUtil::findSteepLines(saddles, vert_types, HE_verts, HE_edges, U);
 
 	ComplexUtil::patch_t ms_patches = ComplexUtil::buildMsPatches(steeplines, vertices_ptr, vns_ptr);
+	bool complex_valid = ComplexUtil::complexValidityCheck(ms_patches);
 
 	std::shared_ptr<vector<vector<int>>> patch_verts = nullptr;
  	std::vector<int> vert_patch_ids(vertices_ptr->rows(), -1);
@@ -117,34 +127,32 @@ int main(int argc, char *argv[])
 	ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map =
 		ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steeplines, sl_patch_map, ms_patches, &patch_graph);
 
-	// //write patch verts
-	//int patch_cnt = 0;
-	//for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
-	//	//if (patch_cnt == 11) {
-	//		for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
-	//			vert_patch_ids[*vert_it] = patch_cnt;
-	//		}
-	//	//}
-	//	patch_cnt++;
-	//}
+	 //write patch verts
+	int patch_cnt = 0;
+	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
+		for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
+			vert_patch_ids[*vert_it] = patch_cnt;
+		}
+		patch_cnt++;
+	}
 	
-	//// write patch verts out
-	//std::ofstream patches_out("../patches.txt");
-	//patches_out << "patch_ids = [";
-	//for (int i = 0; i < vert_patch_ids.size(); i++) {
-	//	patches_out << vert_patch_ids[i] << ", ";
-	//}
-	//patches_out << "]" << endl;
+	// write patch verts out
+	std::ofstream patches_out("../patches.txt");
+	patches_out << "patch_ids = [";
+	for (int i = 0; i < vert_patch_ids.size(); i++) {
+		patches_out << vert_patch_ids[i] << ", ";
+	}
+	patches_out << "]" << endl;
 
-	//// write indices of verts on steeplines
-	//std::ofstream sl_vert_id_out("../sl_vert_ids.txt");
-	//sl_vert_id_out << "sl_verts = [";
+	// write indices of verts on steeplines
+	std::ofstream sl_vert_id_out("../sl_vert_ids.txt");
+	sl_vert_id_out << "sl_verts = [";
 
-	//for (auto v_it = verts_on_sls.begin(); v_it != verts_on_sls.end(); ++v_it) {
-	//	sl_vert_id_out << *v_it << ", ";
-	//}
+	for (auto v_it = verts_on_sls.begin(); v_it != verts_on_sls.end(); ++v_it) {
+		sl_vert_id_out << *v_it << ", ";
+	}
 
-	//sl_vert_id_out << "]" << endl;
+	sl_vert_id_out << "]" << endl;
 
 	// iterate over steep lines
 	std::ofstream lines_out("../line_verts.txt");

@@ -255,7 +255,7 @@ std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep
 		Eigen::Vector3d s2e_prpndclr = s2e - s2e.dot(start_norm) * start_norm;
 
 		// vector from end to start, projected perpendicular to end normal
-		Eigen::Vector3d e2s = -s2e;
+		Eigen::Vector3d e2s = start - end;
 		Eigen::Vector3d e2s_prpndclr = e2s - e2s.dot(end_norm) * end_norm;
 
 		s2e_angl.insert(s2e_angl.begin(), { it->first, s2e_prpndclr});
@@ -306,19 +306,19 @@ std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep
 						}
 						// get ccw angle
 						else {
-							Eigen::Vector3d v1 = -s2e_angl[{end_vert, start_vert}];
+							Eigen::Vector3d v1 = s2e_angl[{end_vert, start_vert}];
 							Eigen::Vector3d v2 = s2e_angl[{end_vert, *end_nb_it}];
 							Eigen::Vector3d end_norm = vns_ptr->row(end_vert);
 						
 							// get angle
 							double angle = acos(v2.dot(v1) / (v1.norm() * v2.norm()));
 							// if angle should be > 180
-							if (end_norm.dot(v1.cross(v2)) < 0) {
+							if (end_norm.dot(v2.cross(v1)) < 0) {
 								angle = 2.0 * PI - angle;
 							}
 							// diff between angle and 90 degrees
 							double angle_diff = abs(PI/2.0 - angle);
-							end_angles.insert(end_angles.begin(), { *end_nb_it, angle_diff });
+							end_angles.insert(end_angles.begin(), { *end_nb_it, angle });
 						}
 					}
 					// find the nb with smallest end_angle
@@ -453,6 +453,15 @@ void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
 	}
 	shared_ptr<vector<vector<int>>> patches_vertices_ptr = std::make_shared<vector<vector<int>>>(patches_vertices);
 	swap(*patch_verts, patches_vertices_ptr);
+}
+
+bool ComplexUtil::complexValidityCheck(patch_t ms_patches) {
+	for (auto patch_it = ms_patches->begin(); patch_it != ms_patches->end(); ++patch_it) {
+		if (patch_it->at(4) != patch_it->at(0)) {
+			return false;
+		}
+	}
+	return true;
 }
 
 bool ComplexUtil::patchValidityCheck(std::shared_ptr<vector<vector<int>>> patch_verts, 

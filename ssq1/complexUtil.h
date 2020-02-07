@@ -32,6 +32,8 @@ namespace ComplexUtil {
 		std::shared_ptr<Eigen::MatrixXd> vns_ptr,
 		std::shared_ptr<vector<vector<int>>> *patch_verts);
 
+	bool complexValidityCheck(patch_t ms_patches);
+
 	bool patchValidityCheck(std::shared_ptr<vector<vector<int>>> patch_verts,
 		int N, const vector<int> &sl_indices);
 
