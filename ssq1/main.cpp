@@ -136,6 +136,11 @@ int main(int argc, char *argv[])
 		patch_cnt++;
 	}
 	
+	int node_num = maxs->size() + mins->size() + saddles->size();
+	ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
+		HE_verts, HE_edges);
+
+	//------------------------------------------------------------------//
 	// write patch verts out
 	std::ofstream patches_out("../patches.txt");
 	patches_out << "patch_ids = [";

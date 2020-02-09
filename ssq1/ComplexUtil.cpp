@@ -5,6 +5,8 @@
 #include <map>
 #include <cmath>
 #include <queue>
+#include <Eigen/Dense>
+#include <Eigen/SparseExtra>
 
 //#include <tuple>
 
@@ -527,6 +529,11 @@ int which_line(std::vector<int> &patch, int start, int end) {
 	return -1;
 }
 
+int which_node(std::vector<int> &patch, int vert) {
+	auto it = std::find(patch.begin(), patch.end(), vert);
+	return it - patch.begin();
+}
+
 int getNbPatchId(steep_lines_t steep_lines, steep_lines_t sl_patch_map, int self_id, int start, int end) {
 	vector<int> &ids = sl_patch_map->at(getSlKey(steep_lines, {start, end}));
 	if (ids[0] == self_id) {
@@ -535,6 +542,7 @@ int getNbPatchId(steep_lines_t steep_lines, steep_lines_t sl_patch_map, int self
 	return ids[0];
 }
 
+// patch corner 0,1,2,3 corresponds to (0,0), (1,0), (1,1), (0,1)
 trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t steeplines, 
 	steep_lines_t sl_patch_map, patch_t ms_patches, patch_t *patch_graph_in) {
 	std::map<std::pair<int, int>, trnsfr_func_t> trnsfr_funcs_map;
@@ -559,5 +567,130 @@ trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t stee
 	patch_t patch_graph_ptr = ptr2;
 	std::swap(*patch_graph_in, patch_graph_ptr);
 	return trnsfr_funcs_map_ptr;
+}
+
+bool isPatchNode(patch_t ms_patches, int vert_idx, int patch_id) {
+	vector<int> &patch_nodes = ms_patches->at(patch_id);
+	auto it = std::find(patch_nodes.begin(), patch_nodes.end(), vert_idx);
+	if (it != patch_nodes.end()) {
+		return true;
+	}
+	return false;
+}
+
+void ComplexUtil::solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids,
+	ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map, int node_num, patch_t ms_patches,
+	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+
+	int unknown_size = vert_patch_ids.size() - node_num;
+	Eigen::SparseMatrix<double> M(unknown_size*2, unknown_size * 2);
+	Eigen::VectorXd knowns(unknown_size * 2);
+
+	for (int i = 0; i < M.rows(); i++) {
+		knowns(i) = 0;
+	}
+
+	std::vector<int> verts_matrx_map(vert_patch_ids.size(), -1);
+
+	// build relationship between vertex index to matrix row
+	int row_indx = 0;
+	for (int v_indx = 0; v_indx < vert_patch_ids.size(); v_indx++) {
+		if (!isPatchNode(ms_patches, v_indx, vert_patch_ids[v_indx])) {
+			verts_matrx_map[v_indx] = row_indx;
+			row_indx++;
+		}
+	}
+
+	for (int vert_indx = 0; vert_indx < vert_patch_ids.size(); vert_indx++) {
+		if (verts_matrx_map[vert_indx] < 0) {
+			continue;
+		}
+		int patch_id = vert_patch_ids[vert_indx];
+		int v_mmap_indx_u = verts_matrx_map[vert_indx];
+		int v_mmap_indx_v = v_mmap_indx_u + unknown_size;
+
+		M.insert(v_mmap_indx_u, v_mmap_indx_u) = 1;
+		M.insert(v_mmap_indx_v, v_mmap_indx_v) = 1;
+		// get its neighbors
+		auto neighbors = HalfEdge::getNeighbors(vert_indx, HE_verts, HE_edges);
+
+		double node_weight = 0;
+
+		for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
+			node_weight -= L.coeff(vert_indx, *nb_it); // L is negative
+		}
+		for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
+
+			double nb_weight = - L.coeff(vert_indx, *nb_it) / node_weight;
+			int nb_patch_id = vert_patch_ids[*nb_it];
+
+			if (verts_matrx_map[*nb_it] >= 0) {
+				int nb_mmap_indx_x = verts_matrx_map[*nb_it];
+				int nb_mmap_indx_y = verts_matrx_map[*nb_it] + unknown_size;
+
+				if (nb_patch_id != patch_id) {
+					// try to find transfer function
+					if (trnsfr_funcs_map->find({ nb_patch_id, patch_id }) != trnsfr_funcs_map->end()) {
+						trnsfr_func_t &trnsfer_func = trnsfr_funcs_map->at({ nb_patch_id, patch_id });
+						// x, y inverted
+						if (std::get<0>(trnsfer_func)) {
+							std::swap(nb_mmap_indx_x, nb_mmap_indx_y);
+						}
+						knowns(v_mmap_indx_u) += nb_weight * (std::get<2>(trnsfer_func)).first;
+						knowns(v_mmap_indx_v) += nb_weight * (std::get<2>(trnsfer_func)).second;
+						M.insert(v_mmap_indx_u, nb_mmap_indx_x) = -nb_weight * (std::get<1>(trnsfer_func)).first;
+						M.insert(v_mmap_indx_v, nb_mmap_indx_y) = -nb_weight * (std::get<1>(trnsfer_func)).second;
+					}
+				}
+				else {
+					M.insert(v_mmap_indx_u, nb_mmap_indx_x) = -nb_weight;
+					M.insert(v_mmap_indx_v, nb_mmap_indx_y) = -nb_weight;
+				}
+			}
+			else {
+				int nb_node_indx = which_node(ms_patches->at(nb_patch_id), *nb_it);
+				if (nb_node_indx == 1 || nb_node_indx == 2) {
+					knowns(v_mmap_indx_u) += nb_weight;
+				}
+				if (nb_node_indx == 2 || nb_node_indx == 3) {
+					knowns(v_mmap_indx_u) += nb_weight;
+				}
+			}
+		}
+		//auto M_dense = Eigen::MatrixXd(M);
+		//std::cout << M_dense.row(0) << std::endl;
+
+	}
+
+	//for (int j = 0; j < M.rows(); j++) {
+	//	std::cout << "row: " << j << endl;
+	//	if (M.coeff(j, j) != 1) {
+	//		std::cout << "error, row: " << j << " not 1" << endl;
+	//	}
+	//	for (int i = 0; i < M.rows(); i++) {
+	//		if (M.coeff(j, i) != 0) {
+	//			std::cout << i << ": " << M.coeff(j, i) << endl;
+	//		}
+	//	}
+	//	std::cout << endl;
+	//}
+	std::cout << "knowns: " << knowns << endl;
+	M.makeCompressed();
+	//Eigen::SparseLU<Eigen::SparseMatrix<double> > solver;
+	//solver.analyzePattern(M);
+	//solver.factorize(M);
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > solverA;
+	solverA.compute(M);
+
+	if (solverA.info() != Eigen::Success) {
+		cout << "Oh: Very bad" << endl;
+	}
+
+	auto coords = std::make_shared<Eigen::VectorXd>(unknown_size * 2);
+	*coords = solverA.solve(knowns);
+	for (int indx = 0; indx < coords->rows(); indx++) {
+		std::cout << (*coords)(indx) << std::endl;
+	}
 }
 
