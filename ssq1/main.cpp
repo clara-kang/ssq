@@ -17,6 +17,15 @@ int EIG_NUM = 20;
 
 bool LOAD_U = true;
 
+void clamp(double &x, double low, double high) {
+	if (x <= low) {
+		x = low;
+	}
+	else if (x >= high) {
+		x = high;
+	}
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -137,7 +146,7 @@ int main(int argc, char *argv[])
 	}
 	
 	int node_num = maxs->size() + mins->size() + saddles->size();
-	ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
+	std::shared_ptr<Eigen::MatrixXd> uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
 		HE_verts, HE_edges);
 
 	//------------------------------------------------------------------//
@@ -233,6 +242,91 @@ int main(int argc, char *argv[])
 		}
 		col_out << "cols[" << v_indx << "]=(" << v_col[0] << ", " << v_col[1] << ", " << v_col[2] << ")" << endl;
 	}
+
+	// write texture coords out
+	Eigen::MatrixXd tcs_out(faces_ptr->size() * 3, 2);
+	Eigen::MatrixXi ftcs_out(faces_ptr->size(), 3);
+
+	//vert_patch_ids, verts_on_sls
+	// iterate over faces
+	for (int face_id = 0; face_id < faces_ptr->rows(); face_id++) {
+		int face_patch_id = -1;
+		for (int i = 0; i < 3; i++) {
+			int vert_idx = (*faces_ptr)(face_id, i);
+			// do not use vertices on steeplines to find patch
+			if (std::find(verts_on_sls.begin(), verts_on_sls.end(), vert_idx) == verts_on_sls.end()) {
+				face_patch_id = vert_patch_ids[vert_idx];
+				break;
+			}
+		}
+		// TODO :: deal with the case with 3 verts on sls
+		if (face_patch_id == -1) {
+			for (int i = 0; i < 3; i++) {
+				tcs_out.row(face_id * 3 + i) << 0, 0;
+			}
+			continue;
+		}
+		//uv_coords
+		for (int i = 0; i < 3; i++) {
+			Eigen::Vector2d uv;
+			int vert_idx = (*faces_ptr)(face_id, i);
+			int vert_patch_id = vert_patch_ids[vert_idx];
+			vector<int> &patch_nodes = ms_patches->at(face_patch_id);
+			int which_node = ComplexUtil::which_node(patch_nodes, vert_idx);
+
+			// if vertex is a node
+			if (which_node <= 3) {
+				switch (which_node)
+				{
+				case 0:
+					uv << 0, 0;
+					break;
+				case 1:
+					uv << 1, 0;
+					break;
+				case 2:
+					uv << 1, 1;
+					break;
+				case 3:
+					uv << 0, 1;
+					break;
+				}
+			}
+			// not a node, test if belongs to a different patch
+			else if (vert_patch_id != face_patch_id ) {
+				// find uv with trnsfr function
+				// TODO:: find a path between disconnected patches
+				if (trnsfr_funcs_map->find({ vert_patch_id, face_patch_id }) == trnsfr_funcs_map->end()) {
+					cout << "vert_idx: " << vert_idx << endl;
+					cout << "vert_patch_id: " << vert_patch_id << endl;
+					cout << "face_patch_id: " << face_patch_id << endl;
+					cout << "verts: " << faces_ptr->row(face_id) << endl;
+					uv << 0, 0;
+				}
+				else {
+					ComplexUtil::trnsfr_func_t trnsfr_func = trnsfr_funcs_map->at({ vert_patch_id, face_patch_id });
+					Eigen::Vector2d initial_uv = uv_coords->row(vert_idx);
+					ComplexUtil::applyTrnsfrFunc(initial_uv, uv, trnsfr_func);
+				}
+			}
+			// vertex belongs to the patch
+			else {
+				uv = uv_coords->row(vert_idx);
+				if (uv(0) == -1 && uv(1) == -1) {
+					cout << "error! " << endl;
+				}
+			}
+			clamp(uv(0), 0, 1);
+			clamp(uv(1), 0, 1);
+			tcs_out.row(face_id * 3 + i) = uv;
+		}
+	}
+	for (int face_id = 0; face_id < faces_ptr->rows(); face_id++) {
+		ftcs_out.row(face_id) << face_id * 3, face_id * 3 + 1, face_id * 3 + 2;
+	}
+
+	igl::writeOBJ("../models/high_sphere_uv.obj", *vertices_ptr, *faces_ptr, *N, *fns_ptr, tcs_out, ftcs_out);
+
 }
 
 	

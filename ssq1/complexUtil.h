@@ -46,7 +46,14 @@ namespace ComplexUtil {
 	//// return vectors, each is [patch1, patch2, patch3, patch3]
 	//patch_t buildPatchGraph(steep_lines_t sl_patch_map, patch_t ms_patches);
 
-	void solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids,
+	std::shared_ptr<Eigen::MatrixXd> solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids,
 		ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map, int node_num, patch_t ms_patches,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
+
+	bool isPatchNode(patch_t ms_patches, int vert_idx, int patch_id);
+
+	int which_node(std::vector<int> &patch, int vert);
+
+	void applyTrnsfrFunc(Eigen::Vector2d &initial_uv, Eigen::Vector2d &res_uv, trnsfr_func_t trnsfr_func);
+	//std::pair<double, double> getUVcoord(std::shared_ptr<Eigen::VectorXd>,int node_num);
 }

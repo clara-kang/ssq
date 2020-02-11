@@ -529,9 +529,9 @@ int which_line(std::vector<int> &patch, int start, int end) {
 	return -1;
 }
 
-int which_node(std::vector<int> &patch, int vert) {
+int ComplexUtil::which_node(std::vector<int> &patch, int vert) {
 	auto it = std::find(patch.begin(), patch.end(), vert);
-	return it - patch.begin();
+	return std::distance(patch.begin(), it);
 }
 
 int getNbPatchId(steep_lines_t steep_lines, steep_lines_t sl_patch_map, int self_id, int start, int end) {
@@ -569,7 +569,7 @@ trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t stee
 	return trnsfr_funcs_map_ptr;
 }
 
-bool isPatchNode(patch_t ms_patches, int vert_idx, int patch_id) {
+bool ComplexUtil::isPatchNode(patch_t ms_patches, int vert_idx, int patch_id) {
 	vector<int> &patch_nodes = ms_patches->at(patch_id);
 	auto it = std::find(patch_nodes.begin(), patch_nodes.end(), vert_idx);
 	if (it != patch_nodes.end()) {
@@ -578,7 +578,22 @@ bool isPatchNode(patch_t ms_patches, int vert_idx, int patch_id) {
 	return false;
 }
 
-void ComplexUtil::solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids,
+void ComplexUtil::applyTrnsfrFunc(Eigen::Vector2d &initial_uv, 
+	Eigen::Vector2d &res_uv, trnsfr_func_t trnsfr_func) {
+
+	if (std::get<0>(trnsfr_func)) {
+		res_uv << initial_uv(1), initial_uv(0);
+	}
+	else {
+		res_uv << initial_uv(0), initial_uv(1);
+	}
+	res_uv(0) *= std::get<2>(trnsfr_func).first;
+	res_uv(1) *= std::get<2>(trnsfr_func).second;
+	res_uv(0) *= std::get<2>(trnsfr_func).first;
+	res_uv(1) *= std::get<2>(trnsfr_func).second;
+}
+
+std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids,
 	ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map, int node_num, patch_t ms_patches,
 	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
 
@@ -662,23 +677,8 @@ void ComplexUtil::solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int
 
 	}
 
-	//for (int j = 0; j < M.rows(); j++) {
-	//	std::cout << "row: " << j << endl;
-	//	if (M.coeff(j, j) != 1) {
-	//		std::cout << "error, row: " << j << " not 1" << endl;
-	//	}
-	//	for (int i = 0; i < M.rows(); i++) {
-	//		if (M.coeff(j, i) != 0) {
-	//			std::cout << i << ": " << M.coeff(j, i) << endl;
-	//		}
-	//	}
-	//	std::cout << endl;
-	//}
-	std::cout << "knowns: " << knowns << endl;
+	//std::cout << "knowns: " << knowns << endl;
 	M.makeCompressed();
-	//Eigen::SparseLU<Eigen::SparseMatrix<double> > solver;
-	//solver.analyzePattern(M);
-	//solver.factorize(M);
 
 	Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > solverA;
 	solverA.compute(M);
@@ -687,10 +687,26 @@ void ComplexUtil::solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int
 		cout << "Oh: Very bad" << endl;
 	}
 
-	auto coords = std::make_shared<Eigen::VectorXd>(unknown_size * 2);
-	*coords = solverA.solve(knowns);
-	for (int indx = 0; indx < coords->rows(); indx++) {
-		std::cout << (*coords)(indx) << std::endl;
+	Eigen::VectorXd X = Eigen::VectorXd(unknown_size * 2);
+	X = solverA.solve(knowns);
+	for (int indx = 0; indx < X.rows(); indx++) {
+		std::cout << X(indx) << std::endl;
 	}
+
+	Eigen::MatrixXd uv_coords(vert_patch_ids.size(), 2);
+
+	for (int v_indx = 0; v_indx < vert_patch_ids.size(); v_indx++) {
+		int v_mmap_indx_u = verts_matrx_map[v_indx];
+		if (v_mmap_indx_u >= 0) {
+			int v_mmap_indx_v = v_mmap_indx_u + unknown_size;
+			uv_coords.row(v_indx) << X(v_mmap_indx_u), X(v_mmap_indx_v);
+		}
+		else {
+			uv_coords.row(v_indx) << -1, -1;
+		}
+	}
+
+	std::shared_ptr<Eigen::MatrixXd> uv_coords_ptr = std::make_shared<Eigen::MatrixXd>(uv_coords);
+	return uv_coords_ptr;
 }
 
