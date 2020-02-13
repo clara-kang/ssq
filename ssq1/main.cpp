@@ -136,6 +136,8 @@ int main(int argc, char *argv[])
 	ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map =
 		ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steeplines, sl_patch_map, ms_patches, &patch_graph);
 
+	ComplexUtil::buildExtendedTrnsfrfuncs(ms_patches, patch_graph, trnsfr_funcs_map);
+
 	 //write patch verts
 	int patch_cnt = 0;
 	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
@@ -148,6 +150,9 @@ int main(int argc, char *argv[])
 	int node_num = maxs->size() + mins->size() + saddles->size();
 	std::shared_ptr<Eigen::MatrixXd> uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
 		HE_verts, HE_edges);
+
+	//ComplexUtil::adjustBndrys(vert_patch_ids, steeplines, sl_patch_map, trnsfr_funcs_map,
+	//	uv_coords, patch_verts, HE_verts, HE_edges);
 
 	//------------------------------------------------------------------//
 	// write patch verts out

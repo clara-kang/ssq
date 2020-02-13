@@ -1,6 +1,7 @@
 #include <memory>
 #include <vector>
 #include "complexUtil.h"
+#include "PathFinding.h"
 #include <algorithm>
 #include <map>
 #include <cmath>
@@ -569,6 +570,88 @@ trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t stee
 	return trnsfr_funcs_map_ptr;
 }
 
+// return f2(f1)
+trnsfr_func_t composeTrnsfrFunc(trnsfr_func_t &f1, trnsfr_func_t &f2) {
+	trnsfr_func_t composed_f;
+	std::get<0>(composed_f) = std::get<0>(f1) != std::get<0>(f2);
+	if (std::get<0>(f2)) {
+		std::get<1>(composed_f) = { std::get<1>(f1).second * std::get<1>(f2).first, std::get<1>(f1).first * std::get<1>(f2).second };
+		std::get<2>(composed_f) = { std::get<2>(f1).second * std::get<1>(f2).first, std::get<2>(f1).first * std::get<1>(f2).second };
+	}
+	else {
+		std::get<1>(composed_f) = { std::get<1>(f1).first * std::get<1>(f2).first, std::get<1>(f1).second * std::get<1>(f2).second };
+		std::get<2>(composed_f) = { std::get<2>(f1).first * std::get<1>(f2).first, std::get<2>(f1).second * std::get<1>(f2).second };
+	}
+	std::get<2>(composed_f).first += std::get<2>(f2).first;
+	std::get<2>(composed_f).second += std::get<2>(f2).second;
+	return composed_f;
+}
+
+trnsfr_func_t inverseTrnsfrFunc(trnsfr_func_t &f) {
+	trnsfr_func_t inv_func;
+	std::get<0>(inv_func) = std::get<0>(f);
+	std::pair<int, int> constants;
+
+	if (std::get<0>(inv_func)) {
+		std::get<1>(inv_func) = { std::get<1>(f).second, std::get<1>(f).first };
+		constants = { std::get<2>(f).second, std::get<2>(f).first };
+
+	}
+	else {
+		std::get<1>(inv_func) = std::get<1>(f);
+		constants = std::get<2>(f);
+	}
+	constants.first *= -std::get<1>(inv_func).first;
+	constants.second *= -std::get<1>(inv_func).second;
+	std::get<2>(inv_func) = constants;
+	return inv_func;
+}
+
+bool shareNodes(vector<int> &nodes1, vector<int> &nodes2) {
+	for (int i = 0; i < 4; i++) {
+		if (std::find(nodes2.begin(), nodes2.end(), nodes1[i]) != nodes2.end()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void ComplexUtil::buildExtendedTrnsfrfuncs(patch_t ms_patches, patch_t patch_graph, trnsfr_funcs_map_t trnsfr_funcs_map) {
+	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
+		vector<int> &nb_patch_ids = patch_graph->at(patch_id);
+		vector<int> extended_nbs;
+		for (auto nb_it = nb_patch_ids.begin(); nb_it != nb_patch_ids.end(); ++nb_it) {
+			// get nb's nbs
+			vector<int> &nb_nb_patch_ids = patch_graph->at(*nb_it);
+			for (auto nb_nb_it = nb_nb_patch_ids.begin(); nb_nb_it != nb_nb_patch_ids.end(); ++nb_nb_it) {
+				// add to extended nb sets if not already in, if not already a nb, if share common vertices
+				if (*nb_nb_it != patch_id &&
+					std::find(nb_patch_ids.begin(), nb_patch_ids.end(), *nb_nb_it) == nb_patch_ids.end() &&
+					std::find(extended_nbs.begin(), extended_nbs.end(), *nb_nb_it) == extended_nbs.end() &&
+					shareNodes(ms_patches->at(patch_id), ms_patches->at(*nb_nb_it))) {
+
+					extended_nbs.push_back(*nb_nb_it);
+				}
+			}
+		}
+		for (auto ex_nb_it = extended_nbs.begin(); ex_nb_it != extended_nbs.end(); ++ex_nb_it) {
+			std::shared_ptr<std::vector<int>> path_to_nb = PathFinding::getPath(patch_id, *ex_nb_it, *patch_graph);
+			trnsfr_func_t cmpsd_func = trnsfr_funcs_map->at({ patch_id, path_to_nb->at(1) });
+			// compose trnsfr function along path
+			for (int i = 1; i < path_to_nb->size() - 1; i++) {
+				trnsfr_func_t next_func = trnsfr_funcs_map->at({ path_to_nb->at(i),path_to_nb->at(i + 1) });
+				cmpsd_func = composeTrnsfrFunc(cmpsd_func, next_func);
+			}
+			// update trnsfr_funcs_map
+			trnsfr_funcs_map->insert({ { patch_id, *ex_nb_it }, cmpsd_func });
+			trnsfr_funcs_map->insert({ { *ex_nb_it, patch_id }, inverseTrnsfrFunc(cmpsd_func) });
+			// update patch_graph
+			patch_graph->at(patch_id).push_back(*ex_nb_it);
+			patch_graph->at(*ex_nb_it).push_back(patch_id);
+		}
+	}
+}
+
 bool ComplexUtil::isPatchNode(patch_t ms_patches, int vert_idx, int patch_id) {
 	vector<int> &patch_nodes = ms_patches->at(patch_id);
 	auto it = std::find(patch_nodes.begin(), patch_nodes.end(), vert_idx);
@@ -656,6 +739,9 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 						M.insert(v_mmap_indx_u, nb_mmap_indx_x) = -nb_weight * (std::get<1>(trnsfer_func)).first;
 						M.insert(v_mmap_indx_v, nb_mmap_indx_y) = -nb_weight * (std::get<1>(trnsfer_func)).second;
 					}
+					else {
+						cout << "cannot find trnsfr func between " << nb_patch_id << " and " << patch_id << endl;
+					}
 				}
 				else {
 					M.insert(v_mmap_indx_u, nb_mmap_indx_x) = -nb_weight;
@@ -689,9 +775,9 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 
 	Eigen::VectorXd X = Eigen::VectorXd(unknown_size * 2);
 	X = solverA.solve(knowns);
-	for (int indx = 0; indx < X.rows(); indx++) {
-		std::cout << X(indx) << std::endl;
-	}
+	//for (int indx = 0; indx < X.rows(); indx++) {
+	//	std::cout << X(indx) << std::endl;
+	//}
 
 	Eigen::MatrixXd uv_coords(vert_patch_ids.size(), 2);
 
@@ -708,5 +794,96 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 
 	std::shared_ptr<Eigen::MatrixXd> uv_coords_ptr = std::make_shared<Eigen::MatrixXd>(uv_coords);
 	return uv_coords_ptr;
+}
+
+bool inRange(Eigen::Vector2d uv) {
+	return (uv(0) < 0 && uv(0) > 1 && uv(1) < 0 && uv(1) > 1);
+}
+
+void swapBtwnPatches(int v_idx, std::vector<int> &vert_patch_ids,
+	std::shared_ptr<vector<vector<int>>> patch_verts,
+	int patch_from, int patch_to) {
+	// remove from current patch
+	vector<int> &from_patch_verts = patch_verts->at(patch_from);
+	auto v_it = std::find(from_patch_verts.begin(), from_patch_verts.end(), v_idx);
+	from_patch_verts.erase(v_it);
+	// add to the other patch
+	patch_verts->at(patch_to).push_back(v_idx);
+	// update vert_patch_ids
+	vert_patch_ids[v_idx] = patch_to;
+
+}
+
+void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t steeplines, 
+	steep_lines_t sl_patch_map, trnsfr_funcs_map_t trnsfr_functions, 
+	std::shared_ptr<Eigen::MatrixXd> uvs, std::shared_ptr<vector<vector<int>>> patch_verts,
+	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+
+	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
+		vector<int> &sl_verts = sl_it->second;
+		vector<int> fronts[2];
+		vector<int> &adj_patche_ids = sl_patch_map->at(sl_it->first);
+		
+		// skip start and end, those are nodes
+		for (auto sl_v = sl_verts.begin()+1; sl_v != sl_verts.end()-1; ++sl_v) {
+			// get the patch id that sl_v is not in
+			int other_patch_id = -1;
+			int cur_patch_id = vert_patch_ids[*sl_v];
+			if (cur_patch_id == adj_patche_ids[0]) {
+				other_patch_id = adj_patche_ids[1];
+			}
+			else {
+				other_patch_id = adj_patche_ids[0];
+			}
+			trnsfr_func_t cur_to_other = trnsfr_functions->at({ cur_patch_id, other_patch_id });
+			trnsfr_func_t other_to_cur = trnsfr_functions->at({ other_patch_id, cur_patch_id });
+			// check if sl_v out of current patch
+			if ( !inRange(uvs->row(*sl_v))) {
+				Eigen::Vector2d uv_in_other;
+				Eigen::Vector2d uv = uvs->row(*sl_v);
+				applyTrnsfrFunc(uv, uv_in_other, cur_to_other);
+				if (inRange(uv_in_other)) {
+					fronts[1].push_back(*sl_v);
+					// swap vert on sl to other patch
+					swapBtwnPatches(*sl_v, vert_patch_ids, patch_verts, cur_patch_id, other_patch_id);
+				}
+			}
+			else {
+				fronts[0].push_back(*sl_v);
+			}
+
+		}
+		// advance the fronts
+		for (int i = 0; i < 2; i++) {
+			while (fronts[0].size() > 0) {
+				// get first element
+				int v_idx = fronts[i][0];
+				fronts[i].erase(fronts[i].begin());
+				int front_patch_id = vert_patch_ids[v_idx];
+
+				HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(v_idx, HE_verts, HE_edges);
+
+				for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
+					int nb_patch_id = vert_patch_ids[*nb_it];
+					// nb is not in the same patch as front, see if can be assimilated
+					if (nb_patch_id != front_patch_id) {
+						Eigen::Vector2d cur_uv = uvs->row(*nb_it);
+						if (!inRange(cur_uv)) {
+							trnsfr_func_t to_front_patch = trnsfr_functions->at({ nb_patch_id, front_patch_id });
+							Eigen::Vector2d uv_trnsfrd;
+							applyTrnsfrFunc(cur_uv, uv_trnsfrd, to_front_patch);
+							// can be assimilated
+							if (inRange(uv_trnsfrd)) {
+								swapBtwnPatches(*nb_it, vert_patch_ids, patch_verts, nb_patch_id, front_patch_id);
+								fronts[i].push_back(*nb_it);
+							}
+						}
+					}
+				}
+			}
+		}
+		
+	}
+
 }
 

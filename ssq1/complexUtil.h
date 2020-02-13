@@ -43,6 +43,8 @@ namespace ComplexUtil {
 	trnsfr_funcs_map_t buildTrnsfrFuncsAndPatchGraph(steep_lines_t steeplines,
 		steep_lines_t sl_patch_map, patch_t ms_patches, patch_t *patch_graph);
 
+	void buildExtendedTrnsfrfuncs(patch_t ms_patches, patch_t patch_graph, trnsfr_funcs_map_t trnsfr_funcs_map);
+
 	//// return vectors, each is [patch1, patch2, patch3, patch3]
 	//patch_t buildPatchGraph(steep_lines_t sl_patch_map, patch_t ms_patches);
 
@@ -55,5 +57,9 @@ namespace ComplexUtil {
 	int which_node(std::vector<int> &patch, int vert);
 
 	void applyTrnsfrFunc(Eigen::Vector2d &initial_uv, Eigen::Vector2d &res_uv, trnsfr_func_t trnsfr_func);
-	//std::pair<double, double> getUVcoord(std::shared_ptr<Eigen::VectorXd>,int node_num);
+
+	void adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t steeplines,
+		steep_lines_t sl_patch_map, trnsfr_funcs_map_t trnsfr_functions,
+		std::shared_ptr<Eigen::MatrixXd> uvs, std::shared_ptr<vector<vector<int>>> patch_verts,
+		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 }
