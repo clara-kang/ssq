@@ -18,22 +18,22 @@ double PI = 3.1415926;
 
 
 std::map<std::pair<int, int>, trnsfr_func_t> line_match_to_func = {
-		{{0, 2}, {false, {1, 1}, {0, 1}}},
-		{{2, 0}, {false, {1, 1}, {0, -1}}},
-		{{0, 3}, {true, {-1, 1}, {0, 0}}},
-		{{3, 0}, {true, {1, -1}, {0, 0}}},
-		{{0, 0}, {false, {-1, -1}, {1, 0}}},
-		{{0, 1}, {true, {1, -1}, {1, 1}}},
-		{{1, 0}, {true, {-1, 1}, {1, -1}}},
-		{{1, 3}, {false, {1, 1}, {-1, 0}}},
-		{{3, 1}, {false, {1, 1}, {1, 0}}},
-		{{1, 1}, {false, {-1, -1}, {2, 1}}},
-		{{1, 2}, {true, {1, -1}, {0, 2}}},
-		{{2, 1}, {true, {-1, 1}, {2, 0}}},
-		{{2, 2}, {false, {-1, -1}, {1, 2}}},
-		{{2, 3}, {true, {1, -1}, {-1, 1}}},
-		{{3, 2}, {true, {-1, 1}, {1, 1}}},
-		{{3, 3}, {false, {-1, -1}, {0, 1}}}
+{{0, 2}, {false, {1, 1}, {0, 1}}},
+{{2, 0}, {false, {1, 1}, {0, -1}}},
+{{0, 3}, {true, {-1, 1}, {0, 0}}},
+{{3, 0}, {true, {1, -1}, {0, 0}}},
+{{0, 0}, {false, {-1, -1}, {1, 0}}},
+{{0, 1}, {true, {1, -1}, {1, 1}}},
+{{1, 0}, {true, {-1, 1}, {1, -1}}},
+{{1, 3}, {false, {1, 1}, {-1, 0}}},
+{{3, 1}, {false, {1, 1}, {1, 0}}},
+{{1, 1}, {false, {-1, -1}, {2, 1}}},
+{{1, 2}, {true, {1, -1}, {0, 2}}},
+{{2, 1}, {true, {-1, 1}, {2, 0}}},
+{{2, 2}, {false, {-1, -1}, {1, 2}}},
+{{2, 3}, {true, {1, -1}, {-1, 1}}},
+{{3, 2}, {true, {-1, 1}, {1, 1}}},
+{{3, 3}, {false, {-1, -1}, {0, 1}}}
 };
 
 void ComplexUtil::findVertexTypes(HalfEdge::vert_t *saddles, HalfEdge::vert_t *maxs,
@@ -56,9 +56,9 @@ void ComplexUtil::findVertexTypes(HalfEdge::vert_t *saddles, HalfEdge::vert_t *m
 		//// get the values of all neighbors
 		//std::vector<double> values(neighbors->size());
 		//for (int nb_idx = 1; nb_idx < neighbors->size(); nb_idx++) {
-		//	values[nb_idx] = U(nb_idx);
+		// values[nb_idx] = U(nb_idx);
 		//}
-		
+
 		// get signs for all neighbors, +1 for >, 0 for =, -1 for <
 		std::vector<int> signs(neighbors->size());
 		for (int nb_idx = 0; nb_idx < neighbors->size(); nb_idx++) {
@@ -102,16 +102,16 @@ void ComplexUtil::findVertexTypes(HalfEdge::vert_t *saddles, HalfEdge::vert_t *m
 		//bool sign = false;
 		//// iterate over neighbor values
 		//for (int nb_idx = 1; nb_idx < neighbors->size(); nb_idx++) {
-		//	double nb_val = U(neighbors->at(nb_idx));
-		//	sign = (nb_val > v_val);
-		//	if (sign != last_sign) {
-		//		sign_change_times++;
-		//	}
-		//	last_sign = sign;
+		// double nb_val = U(neighbors->at(nb_idx));
+		// sign = (nb_val > v_val);
+		// if (sign != last_sign) {
+		// sign_change_times++;
+		// }
+		// last_sign = sign;
 		//}
 		//// last one
 		//if (last_sign != first_sign) {
-		//	sign_change_times++;
+		// sign_change_times++;
 		//}
 
 		if (sign_change_times == 0) {
@@ -150,7 +150,7 @@ int findNext(HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, Eigen::Matrix
 
 	// print out neighbor U values
 	//for (auto it = neighbors->begin(); it != neighbors->end(); ++it) {
-	//	cout << "nb " << *it << ": " << U(*it) << endl;
+	// cout << "nb " << *it << ": " << U(*it) << endl;
 	//}
 
 	if (asc) {
@@ -161,7 +161,7 @@ int findNext(HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, Eigen::Matrix
 		return *max_nb_it;
 	}
 	else {
-		auto comp = [&U](const int &lhs, const int &rhs) { 
+		auto comp = [&U](const int &lhs, const int &rhs) {
 			/*cout << "U(lhs): " << U(lhs) << endl;
 			cout << "U(rhs): " << U(rhs) << endl;*/
 			if (U(lhs) == U(rhs)) {
@@ -183,7 +183,7 @@ steep_lines_t ComplexUtil::findSteepLines(HalfEdge::vert_t saddles, vert_type_t 
 
 	int sl_per_sdl = 0;
 	for (auto it = saddles->begin(); it != saddles->end(); ++it) {
-		
+
 		sl_per_sdl = 0;
 
 		// find steep lines going out from each saddle
@@ -192,11 +192,11 @@ steep_lines_t ComplexUtil::findSteepLines(HalfEdge::vert_t saddles, vert_type_t 
 
 		// print U values for neighbors
 		//for (int nb_id = 0; nb_id < neighbors->size(); nb_id++) {
-		//	cout << "nb: " << neighbors->at(nb_id) << ", U: " << U(neighbors->at(nb_id)) << endl;
+		// cout << "nb: " << neighbors->at(nb_id) << ", U: " << U(neighbors->at(nb_id)) << endl;
 		//}
-		for (int nb_id = 0; nb_id < neighbors->size(); nb_id ++) {
+		for (int nb_id = 0; nb_id < neighbors->size(); nb_id++) {
 			int nb = neighbors->at(nb_id);
-			int next_nb = neighbors->at((nb_id+1)% neighbors->size());
+			int next_nb = neighbors->at((nb_id + 1) % neighbors->size());
 			int prev_nb = neighbors->at((nb_id - 1 + neighbors->size()) % neighbors->size());
 
 			bool ascending = true;
@@ -204,7 +204,7 @@ steep_lines_t ComplexUtil::findSteepLines(HalfEdge::vert_t saddles, vert_type_t 
 			if (U(nb) >= U(*it) && U(nb) >= U(prev_nb) && U(nb) >= U(next_nb)) {
 				ascending = true;
 				sl_per_sdl++;
-			} 
+			}
 			// check if it's a local min
 			else if (U(nb) < U(*it) && U(nb) < U(prev_nb) && U(nb) < U(next_nb)) {
 				ascending = false;
@@ -261,15 +261,15 @@ std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep
 		Eigen::Vector3d e2s = start - end;
 		Eigen::Vector3d e2s_prpndclr = e2s - e2s.dot(end_norm) * end_norm;
 
-		s2e_angl.insert(s2e_angl.begin(), { it->first, s2e_prpndclr});
-		s2e_angl.insert(s2e_angl.begin(), 
+		s2e_angl.insert(s2e_angl.begin(), { it->first, s2e_prpndclr });
+		s2e_angl.insert(s2e_angl.begin(),
 			{ std::make_pair(it->first.second, it->first.first), e2s_prpndclr });
 	}
 
 	// build v2_sl, the adjacency list
 	for (auto it = s2e_angl.begin(); it != s2e_angl.end(); ++it) {
 		if (v2_sl.find(it->first.first) == v2_sl.end()) {
-			v2_sl.insert(v2_sl.begin(), { it->first.first, std::vector<int>({it->first.second})});
+			v2_sl.insert(v2_sl.begin(), { it->first.first, std::vector<int>({it->first.second}) });
 		}
 		else {
 			v2_sl[it->first.first].push_back(it->first.second);
@@ -289,11 +289,11 @@ std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep
 		for (auto ends_it = v2_sl_it->second.begin(); ends_it != v2_sl_it->second.end(); ends_it++) {
 
 			// if half sl does not belong to any patch
-			if ( !sl_cover[{v2_sl_it->first, *ends_it}]) {
+			if (!sl_cover[{v2_sl_it->first, *ends_it}]) {
 
 				int end_vert = *ends_it;
 				int start_vert = v2_sl_it->first;
-				std::vector<int> patch({start_vert, end_vert});
+				std::vector<int> patch({ start_vert, end_vert });
 
 				for (int l_num = 0; l_num < 3; l_num++) {
 
@@ -312,7 +312,7 @@ std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep
 							Eigen::Vector3d v1 = s2e_angl[{end_vert, start_vert}];
 							Eigen::Vector3d v2 = s2e_angl[{end_vert, *end_nb_it}];
 							Eigen::Vector3d end_norm = vns_ptr->row(end_vert);
-						
+
 							// get angle
 							double angle = acos(v2.dot(v1) / (v1.norm() * v2.norm()));
 							// if angle should be > 180
@@ -320,7 +320,7 @@ std::shared_ptr<std::vector<std::vector<int>>> ComplexUtil::buildMsPatches(steep
 								angle = 2.0 * PI - angle;
 							}
 							// diff between angle and 90 degrees
-							double angle_diff = abs(PI/2.0 - angle);
+							double angle_diff = abs(PI / 2.0 - angle);
 							end_angles.insert(end_angles.begin(), { *end_nb_it, angle });
 						}
 					}
@@ -467,7 +467,7 @@ bool ComplexUtil::complexValidityCheck(patch_t ms_patches) {
 	return true;
 }
 
-bool ComplexUtil::patchValidityCheck(std::shared_ptr<vector<vector<int>>> patch_verts, 
+bool ComplexUtil::patchValidityCheck(std::shared_ptr<vector<vector<int>>> patch_verts,
 	int N, const vector<int> &verts_on_sls) {
 	vector<int> vert_patch_ids(N, -1);
 	int patch_cnt = 0;
@@ -507,11 +507,11 @@ steep_lines_t ComplexUtil::buildSLtoPatchMap(steep_lines_t steeplines, patch_t m
 	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
 		sl_patch_map.insert(sl_patch_map.begin(), { sl_it->first, std::vector<int>({}) });
 	}
-	
-	for (int patch_cnt = 0; patch_cnt < ms_patches->size(); patch_cnt ++) {
+
+	for (int patch_cnt = 0; patch_cnt < ms_patches->size(); patch_cnt++) {
 		for (int i = 0; i < 4; i++) {
 			int s = ms_patches->at(patch_cnt)[i];
-			int e = ms_patches->at(patch_cnt)[(i+1)%4];
+			int e = ms_patches->at(patch_cnt)[(i + 1) % 4];
 			sl_patch_map[getSlKey(steeplines, { s, e })].push_back(patch_cnt);
 		}
 	}
@@ -536,7 +536,7 @@ int ComplexUtil::which_node(std::vector<int> &patch, int vert) {
 }
 
 int getNbPatchId(steep_lines_t steep_lines, steep_lines_t sl_patch_map, int self_id, int start, int end) {
-	vector<int> &ids = sl_patch_map->at(getSlKey(steep_lines, {start, end}));
+	vector<int> &ids = sl_patch_map->at(getSlKey(steep_lines, { start, end }));
 	if (ids[0] == self_id) {
 		return ids[1];
 	}
@@ -544,10 +544,10 @@ int getNbPatchId(steep_lines_t steep_lines, steep_lines_t sl_patch_map, int self
 }
 
 // patch corner 0,1,2,3 corresponds to (0,0), (1,0), (1,1), (0,1)
-trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t steeplines, 
+trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t steeplines,
 	steep_lines_t sl_patch_map, patch_t ms_patches, patch_t *patch_graph_in) {
 	std::map<std::pair<int, int>, trnsfr_func_t> trnsfr_funcs_map;
-	std::vector<std::vector<int>> patch_graph(ms_patches->size(), std::vector<int>({0, 0, 0, 0}));
+	std::vector<std::vector<int>> patch_graph(ms_patches->size(), std::vector<int>({ 0, 0, 0, 0 }));
 	int patch_cnt = 0;
 	for (auto patch_it = ms_patches->begin(); patch_it != ms_patches->end(); patch_it++) {
 		for (int line_id = 0; line_id < 4; line_id++) {
@@ -555,7 +555,7 @@ trnsfr_funcs_map_t ComplexUtil::buildTrnsfrFuncsAndPatchGraph(steep_lines_t stee
 			int nb_end = (*patch_it)[line_id];
 			int nb_patch_id = getNbPatchId(steeplines, sl_patch_map, patch_cnt, nb_start, nb_end);
 			int nb_line_id = which_line(ms_patches->at(nb_patch_id), nb_start, nb_end);
-			trnsfr_funcs_map.insert(trnsfr_funcs_map.begin(), 
+			trnsfr_funcs_map.insert(trnsfr_funcs_map.begin(),
 				{ { patch_cnt, nb_patch_id }, line_match_to_func[{line_id, nb_line_id}] });
 			patch_graph[patch_cnt][line_id] = nb_patch_id;
 		}
@@ -616,6 +616,22 @@ bool shareNodes(vector<int> &nodes1, vector<int> &nodes2) {
 	return false;
 }
 
+void addTrnsfrFunc(int patch_from, int patch_to, patch_t patch_graph, trnsfr_funcs_map_t trnsfr_funcs_map) {
+	std::shared_ptr<std::vector<int>> path_to_nb = PathFinding::getPath(patch_from, patch_to, *patch_graph);
+	trnsfr_func_t cmpsd_func = trnsfr_funcs_map->at({ patch_from, path_to_nb->at(1) });
+	// compose trnsfr function along path
+	for (int i = 1; i < path_to_nb->size() - 1; i++) {
+		trnsfr_func_t next_func = trnsfr_funcs_map->at({ path_to_nb->at(i),path_to_nb->at(i + 1) });
+		cmpsd_func = composeTrnsfrFunc(cmpsd_func, next_func);
+	}
+	// update trnsfr_funcs_map
+	trnsfr_funcs_map->insert({ { patch_from, patch_to }, cmpsd_func });
+	trnsfr_funcs_map->insert({ { patch_to, patch_from }, inverseTrnsfrFunc(cmpsd_func) });
+	// update patch_graph
+	patch_graph->at(patch_from).push_back(patch_to);
+	patch_graph->at(patch_to).push_back(patch_from);
+}
+
 void ComplexUtil::buildExtendedTrnsfrfuncs(patch_t ms_patches, patch_t patch_graph, trnsfr_funcs_map_t trnsfr_funcs_map) {
 	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
 		vector<int> &nb_patch_ids = patch_graph->at(patch_id);
@@ -635,19 +651,7 @@ void ComplexUtil::buildExtendedTrnsfrfuncs(patch_t ms_patches, patch_t patch_gra
 			}
 		}
 		for (auto ex_nb_it = extended_nbs.begin(); ex_nb_it != extended_nbs.end(); ++ex_nb_it) {
-			std::shared_ptr<std::vector<int>> path_to_nb = PathFinding::getPath(patch_id, *ex_nb_it, *patch_graph);
-			trnsfr_func_t cmpsd_func = trnsfr_funcs_map->at({ patch_id, path_to_nb->at(1) });
-			// compose trnsfr function along path
-			for (int i = 1; i < path_to_nb->size() - 1; i++) {
-				trnsfr_func_t next_func = trnsfr_funcs_map->at({ path_to_nb->at(i),path_to_nb->at(i + 1) });
-				cmpsd_func = composeTrnsfrFunc(cmpsd_func, next_func);
-			}
-			// update trnsfr_funcs_map
-			trnsfr_funcs_map->insert({ { patch_id, *ex_nb_it }, cmpsd_func });
-			trnsfr_funcs_map->insert({ { *ex_nb_it, patch_id }, inverseTrnsfrFunc(cmpsd_func) });
-			// update patch_graph
-			patch_graph->at(patch_id).push_back(*ex_nb_it);
-			patch_graph->at(*ex_nb_it).push_back(patch_id);
+			addTrnsfrFunc(patch_id, *ex_nb_it, patch_graph, trnsfr_funcs_map);
 		}
 	}
 }
@@ -661,7 +665,7 @@ bool ComplexUtil::isPatchNode(patch_t ms_patches, int vert_idx, int patch_id) {
 	return false;
 }
 
-void ComplexUtil::applyTrnsfrFunc(Eigen::Vector2d &initial_uv, 
+void ComplexUtil::applyTrnsfrFunc(Eigen::Vector2d &initial_uv,
 	Eigen::Vector2d &res_uv, trnsfr_func_t trnsfr_func) {
 
 	if (std::get<0>(trnsfr_func)) {
@@ -670,10 +674,10 @@ void ComplexUtil::applyTrnsfrFunc(Eigen::Vector2d &initial_uv,
 	else {
 		res_uv << initial_uv(0), initial_uv(1);
 	}
-	res_uv(0) *= std::get<2>(trnsfr_func).first;
-	res_uv(1) *= std::get<2>(trnsfr_func).second;
-	res_uv(0) *= std::get<2>(trnsfr_func).first;
-	res_uv(1) *= std::get<2>(trnsfr_func).second;
+	res_uv(0) *= std::get<1>(trnsfr_func).first;
+	res_uv(1) *= std::get<1>(trnsfr_func).second;
+	res_uv(0) += std::get<2>(trnsfr_func).first;
+	res_uv(1) += std::get<2>(trnsfr_func).second;
 }
 
 std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids,
@@ -681,7 +685,7 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
 
 	int unknown_size = vert_patch_ids.size() - node_num;
-	Eigen::SparseMatrix<double> M(unknown_size*2, unknown_size * 2);
+	Eigen::SparseMatrix<double> M(unknown_size * 2, unknown_size * 2);
 	Eigen::VectorXd knowns(unknown_size * 2);
 
 	for (int i = 0; i < M.rows(); i++) {
@@ -719,7 +723,7 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 		}
 		for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
 
-			double nb_weight = - L.coeff(vert_indx, *nb_it) / node_weight;
+			double nb_weight = -L.coeff(vert_indx, *nb_it) / node_weight;
 			int nb_patch_id = vert_patch_ids[*nb_it];
 
 			if (verts_matrx_map[*nb_it] >= 0) {
@@ -776,7 +780,7 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 	Eigen::VectorXd X = Eigen::VectorXd(unknown_size * 2);
 	X = solverA.solve(knowns);
 	//for (int indx = 0; indx < X.rows(); indx++) {
-	//	std::cout << X(indx) << std::endl;
+	// std::cout << X(indx) << std::endl;
 	//}
 
 	Eigen::MatrixXd uv_coords(vert_patch_ids.size(), 2);
@@ -788,7 +792,8 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 			uv_coords.row(v_indx) << X(v_mmap_indx_u), X(v_mmap_indx_v);
 		}
 		else {
-			uv_coords.row(v_indx) << -1, -1;
+			// it's a node
+			uv_coords.row(v_indx) << -100, -100;
 		}
 	}
 
@@ -797,7 +802,7 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 }
 
 bool inRange(Eigen::Vector2d uv) {
-	return (uv(0) < 0 && uv(0) > 1 && uv(1) < 0 && uv(1) > 1);
+	return (uv(0) >= 0 && uv(0) <= 1 && uv(1) >= 0 && uv(1) <= 1);
 }
 
 void swapBtwnPatches(int v_idx, std::vector<int> &vert_patch_ids,
@@ -811,79 +816,126 @@ void swapBtwnPatches(int v_idx, std::vector<int> &vert_patch_ids,
 	patch_verts->at(patch_to).push_back(v_idx);
 	// update vert_patch_ids
 	vert_patch_ids[v_idx] = patch_to;
-
 }
 
-void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t steeplines, 
-	steep_lines_t sl_patch_map, trnsfr_funcs_map_t trnsfr_functions, 
+bool inRangeInPath(std::shared_ptr<Eigen::MatrixXd> uvs, Eigen::Vector2d &uv, int cur_patch_id, int target_patch_id,
+	patch_t patch_graph, trnsfr_funcs_map_t trnsfr_functions) {
+	Eigen::Vector2d uv_in_other;
+	if (trnsfr_functions->find({ cur_patch_id, target_patch_id }) == trnsfr_functions->end()) {
+		cout << cur_patch_id << ", " << target_patch_id << endl;
+		// transfer function not constructed, append it now, should be rare
+		addTrnsfrFunc(cur_patch_id, target_patch_id, patch_graph, trnsfr_functions);
+
+	}
+	trnsfr_func_t cur_to_other = trnsfr_functions->at({ cur_patch_id, target_patch_id });
+	applyTrnsfrFunc(uv, uv_in_other, cur_to_other);
+	return inRange(uv_in_other);
+}
+
+void addToMap(map<int, vector<int>> &m, int key, int val) {
+	if (m.find(key) != m.end()) {
+		m[key].push_back(val);
+	}
+	else {
+		m[key] = std::vector<int>(1, val);
+	}
+}
+
+void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t steeplines,
+	patch_t patch_graph, trnsfr_funcs_map_t trnsfr_functions,
 	std::shared_ptr<Eigen::MatrixXd> uvs, std::shared_ptr<vector<vector<int>>> patch_verts,
 	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
 
+	// checked map, true if vertex is in range in current patch
+	std::vector<bool> checked(vert_patch_ids.size(), false);
+
 	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
 		vector<int> &sl_verts = sl_it->second;
-		vector<int> fronts[2];
-		vector<int> &adj_patche_ids = sl_patch_map->at(sl_it->first);
-		
+		map<int, vector<int>> fronts;
+
 		// skip start and end, those are nodes
-		for (auto sl_v = sl_verts.begin()+1; sl_v != sl_verts.end()-1; ++sl_v) {
-			// get the patch id that sl_v is not in
-			int other_patch_id = -1;
-			int cur_patch_id = vert_patch_ids[*sl_v];
-			if (cur_patch_id == adj_patche_ids[0]) {
-				other_patch_id = adj_patche_ids[1];
+		for (auto sl_v = sl_verts.begin() + 1; sl_v != sl_verts.end() - 1; ++sl_v) {
+			if (*sl_v == 488) {
+				cout << "488!" << endl;
 			}
-			else {
-				other_patch_id = adj_patche_ids[0];
-			}
-			trnsfr_func_t cur_to_other = trnsfr_functions->at({ cur_patch_id, other_patch_id });
-			trnsfr_func_t other_to_cur = trnsfr_functions->at({ other_patch_id, cur_patch_id });
-			// check if sl_v out of current patch
-			if ( !inRange(uvs->row(*sl_v))) {
-				Eigen::Vector2d uv_in_other;
-				Eigen::Vector2d uv = uvs->row(*sl_v);
-				applyTrnsfrFunc(uv, uv_in_other, cur_to_other);
-				if (inRange(uv_in_other)) {
-					fronts[1].push_back(*sl_v);
-					// swap vert on sl to other patch
-					swapBtwnPatches(*sl_v, vert_patch_ids, patch_verts, cur_patch_id, other_patch_id);
-				}
-			}
-			else {
-				fronts[0].push_back(*sl_v);
+			// the vertex might not be in its original patch anymore
+			if (checked[*sl_v]) {
+				continue;
 			}
 
+			int cur_patch_id = vert_patch_ids[*sl_v];
+			Eigen::Vector2d sl_v_uv = uvs->row(*sl_v);
+
+			// not in range in current patch
+			if (!inRange(sl_v_uv)) {
+				// get the potential patches that sl_v might be in
+				vector<int> &cur_patch_nbs = patch_graph->at(cur_patch_id);
+				for (auto patch_nb_it = cur_patch_nbs.begin(); patch_nb_it != cur_patch_nbs.end(); ++patch_nb_it) {
+					if (inRangeInPath(uvs, sl_v_uv, cur_patch_id, *patch_nb_it, patch_graph, trnsfr_functions)) {
+						// swap vert on sl to other patch
+						swapBtwnPatches(*sl_v, vert_patch_ids, patch_verts, cur_patch_id, *patch_nb_it);
+						// add to other patches's front
+						addToMap(fronts, *patch_nb_it, *sl_v);
+						break;
+					}
+				}
+			}
+			// in range in current patch
+			else {
+				addToMap(fronts, cur_patch_id, *sl_v);
+			}
+			checked[*sl_v] = true;
 		}
+
 		// advance the fronts
-		for (int i = 0; i < 2; i++) {
-			while (fronts[0].size() > 0) {
+		for (auto fronts_it = fronts.begin(); fronts_it != fronts.end(); ++fronts_it) {
+			std::vector<int> &front = fronts_it->second;
+			while (front.size() > 0) {
 				// get first element
-				int v_idx = fronts[i][0];
-				fronts[i].erase(fronts[i].begin());
-				int front_patch_id = vert_patch_ids[v_idx];
+				int v_idx = front[0];
+				front.erase(front.begin());
+				int front_patch_id = fronts_it->first;
 
 				HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(v_idx, HE_verts, HE_edges);
 
 				for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
+					if (checked[*nb_it]) {
+						continue;
+					}
 					int nb_patch_id = vert_patch_ids[*nb_it];
 					// nb is not in the same patch as front, see if can be assimilated
 					if (nb_patch_id != front_patch_id) {
 						Eigen::Vector2d cur_uv = uvs->row(*nb_it);
-						if (!inRange(cur_uv)) {
-							trnsfr_func_t to_front_patch = trnsfr_functions->at({ nb_patch_id, front_patch_id });
-							Eigen::Vector2d uv_trnsfrd;
-							applyTrnsfrFunc(cur_uv, uv_trnsfrd, to_front_patch);
-							// can be assimilated
-							if (inRange(uv_trnsfrd)) {
-								swapBtwnPatches(*nb_it, vert_patch_ids, patch_verts, nb_patch_id, front_patch_id);
-								fronts[i].push_back(*nb_it);
-							}
+						if (!inRange(cur_uv) && inRangeInPath(uvs, cur_uv, nb_patch_id, front_patch_id, patch_graph, trnsfr_functions)) {
+							swapBtwnPatches(*nb_it, vert_patch_ids, patch_verts, nb_patch_id, front_patch_id);
+							front.push_back(*nb_it);
+							checked[*nb_it] = true;
 						}
 					}
 				}
 			}
 		}
-		
 	}
-
 }
 
+//void retraceSteepLines(std::vector<int> &vert_patch_ids, patch_t ms_patches, steep_lines_t steeplines,
+//	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+//
+//	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
+//		vector<int> patch_nodes = ms_patches->at(patch_id);
+//		for (int i = 0; i < 4; i++) {
+//			int v_idx = patch_nodes[i];
+//			int next_node_idx = patch_nodes[(i + 1) % 4];
+//
+//			while (v_idx != next_node_idx) {
+//				// find next vert on sl that's on border of patch
+//				HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(v_idx, HE_verts, HE_edges);
+//				// find 
+//				for (int nb_idx = 0; nb_idx < neighbors->size(); nb_idx++) {
+//					int next_nb_idx = neighbors[(nb_idx + 1) % neighbors->size()];
+//					if (vert_patch_ids[nb_idx] != patch_id && )
+//				}
+//			}
+//		}
+//	}
+//}

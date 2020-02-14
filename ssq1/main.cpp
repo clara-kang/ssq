@@ -16,6 +16,7 @@ using namespace std;
 int EIG_NUM = 20;
 
 bool LOAD_U = true;
+bool LOAD_UV = true;
 
 void clamp(double &x, double low, double high) {
 	if (x <= low) {
@@ -51,8 +52,8 @@ int main(int argc, char *argv[])
 	cout << "vertices_ptr size: " << vertices_ptr->rows() << endl;
 	cout << "vns_ptr size: " << vns_ptr->rows() << endl;
 	//for (int i = 0; i < vns_ptr->rows(); i++) {
-	//	vns_ptr->row(i) = vertices_ptr->row(i).normalized();
-	//	cout << "vn[" << i << "]: " << vns_ptr->row(i) << endl;;
+	// vns_ptr->row(i) = vertices_ptr->row(i).normalized();
+	// cout << "vn[" << i << "]: " << vns_ptr->row(i) << endl;;
 	//}
 
 	Eigen::SparseMatrix<double> L, M;
@@ -95,7 +96,7 @@ int main(int argc, char *argv[])
 		u_file.close();
 	}
 	//for (int i = 0; i < vertices_ptr->rows(); i++) {
-	//	cout << "U(i)" << U(i) << endl;
+	// cout << "U(i)" << U(i) << endl;
 	//}
 
 	std::shared_ptr< std::vector<HalfEdge::HE>> HE_edges = nullptr;
@@ -115,7 +116,7 @@ int main(int argc, char *argv[])
 	bool complex_valid = ComplexUtil::complexValidityCheck(ms_patches);
 
 	std::shared_ptr<vector<vector<int>>> patch_verts = nullptr;
- 	std::vector<int> vert_patch_ids(vertices_ptr->rows(), -1);
+	std::vector<int> vert_patch_ids(vertices_ptr->rows(), -1);
 
 	ComplexUtil::fillMsPatches(steeplines, ms_patches, HE_verts, HE_edges, vertices_ptr, vns_ptr, &patch_verts);
 
@@ -138,7 +139,7 @@ int main(int argc, char *argv[])
 
 	ComplexUtil::buildExtendedTrnsfrfuncs(ms_patches, patch_graph, trnsfr_funcs_map);
 
-	 //write patch verts
+	//write patch verts
 	int patch_cnt = 0;
 	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
 		for (auto vert_it = patch_it->begin(); vert_it != patch_it->end(); ++vert_it) {
@@ -146,13 +147,41 @@ int main(int argc, char *argv[])
 		}
 		patch_cnt++;
 	}
-	
-	int node_num = maxs->size() + mins->size() + saddles->size();
-	std::shared_ptr<Eigen::MatrixXd> uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
-		HE_verts, HE_edges);
 
-	//ComplexUtil::adjustBndrys(vert_patch_ids, steeplines, sl_patch_map, trnsfr_funcs_map,
-	//	uv_coords, patch_verts, HE_verts, HE_edges);
+	int node_num = maxs->size() + mins->size() + saddles->size();
+
+	std::shared_ptr<Eigen::MatrixXd> uv_coords;
+	if (!LOAD_UV) {
+		uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
+			HE_verts, HE_edges);
+		// write UVs out, for debugging only! 
+		std::ofstream uv_file("../UV.txt");
+		for (int i = 0; i < U.rows(); i++) {
+			uv_file << (*uv_coords)(i, 0) << " " << (*uv_coords)(i, 1) << endl;
+		}
+		uv_file.close();
+	}
+	else {
+		Eigen::MatrixXd uv = Eigen::MatrixXd(vertices_ptr->rows(), 2);
+		std::string line;
+		std::ifstream rfile;
+		rfile.open("../UV.txt");
+		if (rfile.is_open()) {
+			int line_num = 0;
+			while (std::getline(rfile, line)) {
+				size_t pos = line.find(" ");
+				std::string u_str = line.substr(0, pos);
+				std::string v_str = line.substr(pos + 1, line.length());
+				uv.row(line_num) << stod(u_str), stod(v_str);
+				line_num++;
+			}
+			rfile.close();
+		}
+		uv_coords = std::make_shared<Eigen::MatrixXd>(uv);
+	}
+
+	ComplexUtil::adjustBndrys(vert_patch_ids, steeplines, patch_graph, trnsfr_funcs_map,
+		uv_coords, patch_verts, HE_verts, HE_edges);
 
 	//------------------------------------------------------------------//
 	// write patch verts out
@@ -162,7 +191,6 @@ int main(int argc, char *argv[])
 		patches_out << vert_patch_ids[i] << ", ";
 	}
 	patches_out << "]" << endl;
-
 	// write indices of verts on steeplines
 	std::ofstream sl_vert_id_out("../sl_vert_ids.txt");
 	sl_vert_id_out << "sl_verts = [";
@@ -186,7 +214,7 @@ int main(int argc, char *argv[])
 				+ std::to_string((*vertices_ptr)(*v_it, 1)) + ", "
 				+ std::to_string((*vertices_ptr)(*v_it, 2)) + "),";
 		}
-		lines_out << + "]\n";
+		lines_out << +"]\n";
 		lines_cnt++;
 	}
 	lines_out.close();
@@ -208,7 +236,7 @@ int main(int argc, char *argv[])
 		else if (pt_type == 1) {
 			pt_list = saddles;
 			array_name = "sdl_locs";
-		} 
+		}
 		else {
 			pt_list = mins;
 			array_name = "min_locs";
@@ -221,7 +249,7 @@ int main(int argc, char *argv[])
 			pts_cnt++;
 		}
 	}
-	
+
 	pts_out.close();
 
 	std::ofstream col_out("../cols.txt");
@@ -298,7 +326,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			// not a node, test if belongs to a different patch
-			else if (vert_patch_id != face_patch_id ) {
+			else if (vert_patch_id != face_patch_id) {
 				// find uv with trnsfr function
 				// TODO:: find a path between disconnected patches
 				if (trnsfr_funcs_map->find({ vert_patch_id, face_patch_id }) == trnsfr_funcs_map->end()) {
@@ -333,5 +361,3 @@ int main(int argc, char *argv[])
 	igl::writeOBJ("../models/high_sphere_uv.obj", *vertices_ptr, *faces_ptr, *N, *fns_ptr, tcs_out, ftcs_out);
 
 }
-
-	
