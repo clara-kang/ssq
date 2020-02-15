@@ -855,9 +855,6 @@ void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t s
 
 		// skip start and end, those are nodes
 		for (auto sl_v = sl_verts.begin() + 1; sl_v != sl_verts.end() - 1; ++sl_v) {
-			if (*sl_v == 488) {
-				cout << "488!" << endl;
-			}
 			// the vertex might not be in its original patch anymore
 			if (checked[*sl_v]) {
 				continue;
@@ -918,24 +915,57 @@ void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t s
 	}
 }
 
-//void retraceSteepLines(std::vector<int> &vert_patch_ids, patch_t ms_patches, steep_lines_t steeplines,
-//	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
-//
-//	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
-//		vector<int> patch_nodes = ms_patches->at(patch_id);
-//		for (int i = 0; i < 4; i++) {
-//			int v_idx = patch_nodes[i];
-//			int next_node_idx = patch_nodes[(i + 1) % 4];
-//
-//			while (v_idx != next_node_idx) {
-//				// find next vert on sl that's on border of patch
-//				HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(v_idx, HE_verts, HE_edges);
-//				// find 
-//				for (int nb_idx = 0; nb_idx < neighbors->size(); nb_idx++) {
-//					int next_nb_idx = neighbors[(nb_idx + 1) % neighbors->size()];
-//					if (vert_patch_ids[nb_idx] != patch_id && )
-//				}
-//			}
-//		}
-//	}
-//}
+
+int findVertOnBoundaryRec(std::vector<int> &vert_patch_ids, int start_v, std::vector<int> &visited,
+	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+	if (std::find(visited.begin(), visited.end(), start_v) != visited.end()) {
+		return -1;
+	}
+	int patch_id = vert_patch_ids[start_v];
+	HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(start_v, HE_verts, HE_edges); 
+	for (int nb_idx = 0; nb_idx < neighbors->size(); nb_idx++) {
+		// found vertex on boundary
+		if (vert_patch_ids[neighbors->at(nb_idx)] != patch_id) {
+			return start_v;
+		}
+	}
+	// did not find vertex on boundary
+	visited.push_back(start_v);
+	for (int nb_idx = 0; nb_idx < neighbors->size(); nb_idx++) {
+		int v_on_bndry = findVertOnBoundaryRec(vert_patch_ids, neighbors->at(nb_idx),
+			visited, HE_verts, HE_edges);
+		if (v_on_bndry != -1) {
+			return v_on_bndry;
+		}
+	}
+	return -1;
+}
+
+void ComplexUtil::retraceSteepLines(std::vector<int> &vert_patch_ids, patch_t ms_patches, 
+	steep_lines_t steeplines, std::shared_ptr<vector<vector<int>>> patch_verts, 
+	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+
+	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
+		vector<int> patch_nodes = ms_patches->at(patch_id);
+		vector<int> visited;
+		int start_v = patch_verts->at(patch_id)[0];
+		int boundary_node = findVertOnBoundaryRec(vert_patch_ids, start_v, visited, HE_verts, HE_edges);
+
+		// start tracing, keep patch on the left
+		vector<int> boundary_vs(1, boundary_node);
+		int cur_v = boundary_node;
+		do {
+			HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(cur_v, HE_verts, HE_edges);
+			for (int nb_idx = 0; nb_idx < neighbors->size(); nb_idx++) {
+				int nb = neighbors->at(nb_idx);
+				int next_nb = neighbors->at((nb_idx + 1) % neighbors->size());
+				if (vert_patch_ids[nb] == patch_id && vert_patch_ids[next_nb] != patch_id) {
+					boundary_vs.push_back(nb);
+					cur_v = nb;
+					break;
+				}
+			}
+		} while (cur_v != boundary_node);
+
+	}
+}
