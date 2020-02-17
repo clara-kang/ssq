@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 	ComplexUtil::adjustBndrys(vert_patch_ids, steeplines, patch_graph, trnsfr_funcs_map,
 		uv_coords, patch_verts, HE_verts, HE_edges);
 
-	ComplexUtil::retraceSteepLines(vert_patch_ids, ms_patches, steeplines,
+	ComplexUtil::retraceSteepLines(vertices_ptr, vert_patch_ids, ms_patches, steeplines,
 		patch_verts, HE_verts, HE_edges);
 
 	//------------------------------------------------------------------//
