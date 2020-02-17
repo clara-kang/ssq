@@ -1,3 +1,5 @@
+verts = [None] * 40
+
 import bpy
 import bmesh
 

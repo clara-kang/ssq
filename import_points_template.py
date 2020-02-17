@@ -1,3 +1,7 @@
+max_locs = [None] * 6
+sdl_locs = [None] * 10
+min_locs = [None] * 6
+
 import bpy
 import bmesh
 

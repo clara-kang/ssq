@@ -63,7 +63,8 @@ namespace ComplexUtil {
 		std::shared_ptr<Eigen::MatrixXd> uvs, std::shared_ptr<vector<vector<int>>> patch_verts,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 
-	void retraceSteepLines(std::vector<int> &vert_patch_ids, patch_t ms_patches,
-		steep_lines_t steeplines, std::shared_ptr<vector<vector<int>>> patch_verts,
+	void retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_ptr, 
+		std::vector<int> &vert_patch_ids, patch_t ms_patches,
+		steep_lines_t *steeplines,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 }

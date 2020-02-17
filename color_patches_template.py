@@ -1,3 +1,6 @@
+patch_ids = []
+sl_verts = []
+
 import bpy
 import random
 

@@ -810,6 +810,9 @@ void swapBtwnPatches(int v_idx, std::vector<int> &vert_patch_ids,
 	int patch_from, int patch_to) {
 	// remove from current patch
 	vector<int> &from_patch_verts = patch_verts->at(patch_from);
+	if (v_idx == 336) {
+		cout << "336" << endl;
+	}
 	auto v_it = std::find(from_patch_verts.begin(), from_patch_verts.end(), v_idx);
 	from_patch_verts.erase(v_it);
 	// add to the other patch
@@ -853,8 +856,7 @@ void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t s
 		vector<int> &sl_verts = sl_it->second;
 		map<int, vector<int>> fronts;
 
-		// skip start and end, those are nodes
-		for (auto sl_v = sl_verts.begin() + 1; sl_v != sl_verts.end() - 1; ++sl_v) {
+		for (auto sl_v = sl_verts.begin(); sl_v != sl_verts.end(); ++sl_v) {
 			// the vertex might not be in its original patch anymore
 			if (checked[*sl_v]) {
 				continue;
@@ -916,6 +918,7 @@ void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t s
 }
 
 
+
 int findVertOnBoundaryRec(std::vector<int> &vert_patch_ids, int start_v, std::vector<int> &visited,
 	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
 	if (std::find(visited.begin(), visited.end(), start_v) != visited.end()) {
@@ -941,31 +944,120 @@ int findVertOnBoundaryRec(std::vector<int> &vert_patch_ids, int start_v, std::ve
 	return -1;
 }
 
-void ComplexUtil::retraceSteepLines(std::vector<int> &vert_patch_ids, patch_t ms_patches, 
-	steep_lines_t steeplines, std::shared_ptr<vector<vector<int>>> patch_verts, 
+int findClosestBoundary(std::shared_ptr<Eigen::MatrixXd> vertices_ptr, 
+	int node_v, vector<int> &bndry_verts,
 	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+	vector<double> dist2node(bndry_verts.size());
+	for (int i = 0; i < bndry_verts.size(); i++) {
+		dist2node[i] = (vertices_ptr->row(bndry_verts[i]) - vertices_ptr->row(node_v)).norm();
+	}
+	auto min_bndry_v = std::min_element(dist2node.begin(), dist2node.end());
+	return bndry_verts[std::distance(dist2node.begin(), min_bndry_v)];
+}
+
+void updatePatchNode(patch_t ms_patches, int old_node, int new_node, 
+	std::vector<int> &vert_patch_ids, int patch_id) {
+	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
+		for (int i = 0; i < 4; i++) {
+			if (ms_patches->at(patch_id)[i] == old_node) {
+				ms_patches->at(patch_id)[i] = new_node;
+			}
+		}
+	}
+	vert_patch_ids[old_node] = patch_id;
+}
+
+bool onBoundary(patch_t ms_patches, int vert, int patch_id, std::vector<int> &vert_patch_ids,
+	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+	HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(vert, HE_verts, HE_edges);
+	std::vector<int> &patch_nodes = ms_patches->at(patch_id);
+	for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
+		int nb_patch_id = vert_patch_ids[*nb_it];
+		if (patch_id != nb_patch_id && 
+			std::find(patch_nodes.begin(), patch_nodes.end(), *nb_it) == patch_nodes.end()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_ptr, 
+	std::vector<int> &vert_patch_ids, patch_t ms_patches, steep_lines_t *steeplines, 
+	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
+
+	std::map<std::pair<int, int>, std::vector<int>> new_sls;
+	Eigen::SparseMatrix<int> conn_graph(vertices_ptr->rows(), vertices_ptr->rows());
+	
+	vector<int> patches_bndry;
+
+	std::ofstream tmp("../temp.txt");
 
 	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
 		vector<int> patch_nodes = ms_patches->at(patch_id);
 		vector<int> visited;
-		int start_v = patch_verts->at(patch_id)[0];
-		int boundary_node = findVertOnBoundaryRec(vert_patch_ids, start_v, visited, HE_verts, HE_edges);
+		vector<int> patch_bndry;
 
-		// start tracing, keep patch on the left
-		vector<int> boundary_vs(1, boundary_node);
-		int cur_v = boundary_node;
-		do {
-			HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(cur_v, HE_verts, HE_edges);
-			for (int nb_idx = 0; nb_idx < neighbors->size(); nb_idx++) {
-				int nb = neighbors->at(nb_idx);
-				int next_nb = neighbors->at((nb_idx + 1) % neighbors->size());
-				if (vert_patch_ids[nb] == patch_id && vert_patch_ids[next_nb] != patch_id) {
-					boundary_vs.push_back(nb);
-					cur_v = nb;
-					break;
+		//int boundary_node = findVertOnBoundaryRec(vert_patch_ids, start_v, visited, HE_verts, HE_edges);
+		// find patch_bndry
+
+		for (int v_idx = 0; v_idx < vert_patch_ids.size(); v_idx++) {
+			if (vert_patch_ids[v_idx] == patch_id) {
+				if (onBoundary(ms_patches, v_idx, patch_id, vert_patch_ids, HE_verts, HE_edges)) {
+					patch_bndry.push_back(v_idx);
+					tmp << v_idx << ", ";
 				}
 			}
-		} while (cur_v != boundary_node);
+		}
+		patches_bndry.insert(patches_bndry.end(), patch_bndry.begin(), patch_bndry.end());
 
+		// check if patch node is surrounded, if yes, project onto boundary
+		for (int i = 0; i < 4; i++) {
+			int node_v = ms_patches->at(patch_id)[i];
+			HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(node_v, HE_verts, HE_edges);
+			bool node_inside = !onBoundary(ms_patches, node_v, patch_id, vert_patch_ids, HE_verts, HE_edges);
+
+			// project node on boundary
+			if (node_inside) {
+				int close_bndry_v = findClosestBoundary(vertices_ptr, node_v,
+					patch_bndry, HE_verts, HE_edges);
+				updatePatchNode(ms_patches, node_v, close_bndry_v, vert_patch_ids, patch_id);
+			}
+		}
 	}
+
+	// build connectivity graph
+	for (auto v = patches_bndry.begin(); v != patches_bndry.end(); ++v) {
+		HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(*v, HE_verts, HE_edges);
+		int num_nb_conn = 0;
+		for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
+			if (std::find(patches_bndry.begin(), patches_bndry.end(), *nb_it) != patches_bndry.end()) {
+				num_nb_conn++;
+				conn_graph.coeffRef(*v, *nb_it) = 1;
+				conn_graph.coeffRef(*nb_it, *v) = 1;
+			}
+		}
+		cout << "num_nb_conn: " << num_nb_conn << endl;
+	}
+
+	// find new sls
+	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
+		for (int i = 0; i < 4; i++) {
+			int node_v = ms_patches->at(patch_id)[i];
+			int next_node_v = ms_patches->at(patch_id)[(i+1)%4];
+			if (new_sls.find({ node_v, next_node_v }) == new_sls.end() &&
+				new_sls.find({ next_node_v, node_v }) == new_sls.end()) {
+				std::shared_ptr<std::vector<int>> path = PathFinding::getPath(node_v, next_node_v, conn_graph);
+				new_sls[{node_v, next_node_v}] = *path;
+				if (path != nullptr) {
+					cout << "not null" << endl;
+				}
+			}
+			
+		}
+		
+	}
+
+	steep_lines_t ptr = std::make_shared<std::map<std::pair<int, int>, std::vector<int>>>(new_sls);
+	std::swap(ptr, *steeplines);
+	tmp.close();
 }

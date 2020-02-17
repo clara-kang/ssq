@@ -4,7 +4,7 @@
 #include <igl/eigs.h>
 #include <igl/massmatrix.h>
 #include <Eigen/SparseExtra>
-
+#include <set>
 #include <string.h>
 
 #include "HalfEdge.h"
@@ -183,8 +183,8 @@ int main(int argc, char *argv[])
 	ComplexUtil::adjustBndrys(vert_patch_ids, steeplines, patch_graph, trnsfr_funcs_map,
 		uv_coords, patch_verts, HE_verts, HE_edges);
 
-	ComplexUtil::retraceSteepLines(vert_patch_ids, ms_patches, steeplines,
-		patch_verts, HE_verts, HE_edges);
+	ComplexUtil::retraceSteepLines(vertices_ptr, vert_patch_ids, ms_patches, 
+		&steeplines, HE_verts, HE_edges);
 
 	//------------------------------------------------------------------//
 	// write patch verts out
@@ -255,6 +255,25 @@ int main(int argc, char *argv[])
 
 	pts_out.close();
 
+	// write out patch nodes
+	// gather nodes
+	set<int> patch_nodes;
+	for (auto p_it = ms_patches->begin(); p_it != ms_patches->end(); ++p_it) {
+		for (int i = 0; i < 4; i++) {
+			int node_id = p_it->at(i);
+			patch_nodes.insert(node_id);
+		}
+	}
+	std::ofstream nodes_out("../patch_nodes.txt");
+	nodes_out << "nodes_locs = [";
+	for (auto node_it = patch_nodes.begin(); node_it != patch_nodes.end(); ++node_it) {
+		Eigen::Vector3d loc = vertices_ptr->row(*node_it);
+		nodes_out << "(" << loc(0) << ", " << loc(1) << ", " << loc(2) << "), ";
+	}
+	nodes_out << "]" << endl;
+	nodes_out.close();
+
+	// write U out as colors
 	std::ofstream col_out("../cols.txt");
 	col_out << "cols = [None] * " + std::to_string(vertices_ptr->rows()) << endl;
 	// assign a color to each vertex based on U, blue -> green -> red
