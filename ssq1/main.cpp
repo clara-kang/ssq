@@ -27,6 +27,20 @@ void clamp(double &x, double low, double high) {
 	}
 }
 
+vector<int> getPatchNodes(ComplexUtil::patch_t ms_patches) {
+	// gather nodes
+	set<int> patch_nodes;
+	for (auto p_it = ms_patches->begin(); p_it != ms_patches->end(); ++p_it) {
+		for (int i = 0; i < 4; i++) {
+			int node_id = p_it->at(i);
+			patch_nodes.insert(node_id);
+		}
+	}
+
+	vector<int> patch_nodes_v(patch_nodes.begin(), patch_nodes.end());
+	return patch_nodes_v;
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -139,6 +153,9 @@ int main(int argc, char *argv[])
 
 	ComplexUtil::buildExtendedTrnsfrfuncs(ms_patches, patch_graph, trnsfr_funcs_map);
 
+	int node_num = maxs->size() + mins->size() + saddles->size();
+	vector<int> patch_nodes_v = getPatchNodes(ms_patches);
+
 	//write patch verts
 	int patch_cnt = 0;
 	for (auto patch_it = patch_verts->begin(); patch_it != patch_verts->end(); ++patch_it) {
@@ -148,7 +165,9 @@ int main(int argc, char *argv[])
 		patch_cnt++;
 	}
 
-	int node_num = maxs->size() + mins->size() + saddles->size();
+	for (auto node_it = patch_nodes_v.begin(); node_it != patch_nodes_v.end(); ++node_it) {
+		vert_patch_ids[*node_it] = -1;
+	}
 
 	std::shared_ptr<Eigen::MatrixXd> uv_coords;
 	if (!LOAD_UV) {
@@ -185,6 +204,19 @@ int main(int argc, char *argv[])
 
 	ComplexUtil::retraceSteepLines(vertices_ptr, vert_patch_ids, ms_patches, 
 		&steeplines, HE_verts, HE_edges);
+
+	// gather nodes
+	patch_nodes_v = getPatchNodes(ms_patches);
+
+	ComplexUtil::relocateNodes(steeplines, ms_patches,
+		patch_nodes_v, vert_patch_ids);
+
+	//for (auto node_it = patch_nodes_v.begin(); node_it != patch_nodes_v.end(); ++node_it) {
+	//	vert_patch_ids[*node_it] = -1;
+	//}
+	
+	//uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
+	//	HE_verts, HE_edges);
 
 	//------------------------------------------------------------------//
 	// write patch verts out
@@ -256,17 +288,9 @@ int main(int argc, char *argv[])
 	pts_out.close();
 
 	// write out patch nodes
-	// gather nodes
-	set<int> patch_nodes;
-	for (auto p_it = ms_patches->begin(); p_it != ms_patches->end(); ++p_it) {
-		for (int i = 0; i < 4; i++) {
-			int node_id = p_it->at(i);
-			patch_nodes.insert(node_id);
-		}
-	}
 	std::ofstream nodes_out("../patch_nodes.txt");
 	nodes_out << "nodes_locs = [";
-	for (auto node_it = patch_nodes.begin(); node_it != patch_nodes.end(); ++node_it) {
+	for (auto node_it = patch_nodes_v.begin(); node_it != patch_nodes_v.end(); ++node_it) {
 		Eigen::Vector3d loc = vertices_ptr->row(*node_it);
 		nodes_out << "(" << loc(0) << ", " << loc(1) << ", " << loc(2) << "), ";
 	}

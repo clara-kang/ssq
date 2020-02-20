@@ -665,6 +665,10 @@ bool ComplexUtil::isPatchNode(patch_t ms_patches, int vert_idx, int patch_id) {
 	return false;
 }
 
+bool isNode(vector<int> &patch_nodes_v, int v_idx) {
+	return std::find(patch_nodes_v.begin(), patch_nodes_v.end(), v_idx) != patch_nodes_v.end();
+}
+
 void ComplexUtil::applyTrnsfrFunc(Eigen::Vector2d &initial_uv,
 	Eigen::Vector2d &res_uv, trnsfr_func_t trnsfr_func) {
 
@@ -697,7 +701,8 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 	// build relationship between vertex index to matrix row
 	int row_indx = 0;
 	for (int v_indx = 0; v_indx < vert_patch_ids.size(); v_indx++) {
-		if (!isPatchNode(ms_patches, v_indx, vert_patch_ids[v_indx])) {
+		//if (!isPatchNode(ms_patches, v_indx, vert_patch_ids[v_indx])) {
+		if (vert_patch_ids[v_indx] >= 0) {
 			verts_matrx_map[v_indx] = row_indx;
 			row_indx++;
 		}
@@ -707,6 +712,7 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 		if (verts_matrx_map[vert_indx] < 0) {
 			continue;
 		}
+
 		int patch_id = vert_patch_ids[vert_indx];
 		int v_mmap_indx_u = verts_matrx_map[vert_indx];
 		int v_mmap_indx_v = v_mmap_indx_u + unknown_size;
@@ -753,7 +759,7 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 				}
 			}
 			else {
-				int nb_node_indx = which_node(ms_patches->at(nb_patch_id), *nb_it);
+				int nb_node_indx = which_node(ms_patches->at(patch_id), *nb_it);
 				if (nb_node_indx == 1 || nb_node_indx == 2) {
 					knowns(v_mmap_indx_u) += nb_weight;
 				}
@@ -762,10 +768,12 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 				}
 			}
 		}
-		//auto M_dense = Eigen::MatrixXd(M);
-		//std::cout << M_dense.row(0) << std::endl;
-
 	}
+
+	//auto M_dense = Eigen::MatrixXd(M);
+	//for (int i = 0; i < M_dense.rows(); i++) {
+	//	cout << M_dense(i, i) << endl;
+	//}
 
 	//std::cout << "knowns: " << knowns << endl;
 	M.makeCompressed();
@@ -863,6 +871,10 @@ void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t s
 			}
 
 			int cur_patch_id = vert_patch_ids[*sl_v];
+			// is node
+			if (cur_patch_id < 0) {
+				continue;
+			}
 			Eigen::Vector2d sl_v_uv = uvs->row(*sl_v);
 
 			// not in range in current patch
@@ -902,6 +914,10 @@ void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t s
 						continue;
 					}
 					int nb_patch_id = vert_patch_ids[*nb_it];
+					// nb is node
+					if (nb_patch_id < 0) {
+						continue;
+					}
 					// nb is not in the same patch as front, see if can be assimilated
 					if (nb_patch_id != front_patch_id) {
 						Eigen::Vector2d cur_uv = uvs->row(*nb_it);
@@ -956,15 +972,22 @@ int findClosestBoundary(std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
 }
 
 void updatePatchNode(patch_t ms_patches, int old_node, int new_node, 
-	std::vector<int> &vert_patch_ids, int patch_id) {
+	std::vector<int> &vert_patch_ids, int assign_patch_id) {
+	int any_patch_id = -1;
 	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
 		for (int i = 0; i < 4; i++) {
 			if (ms_patches->at(patch_id)[i] == old_node) {
+				any_patch_id = patch_id;
 				ms_patches->at(patch_id)[i] = new_node;
 			}
 		}
 	}
-	vert_patch_ids[old_node] = patch_id;
+	if (assign_patch_id >= 0) {
+		vert_patch_ids[old_node] = assign_patch_id;
+	}
+	else {
+		vert_patch_ids[old_node] = any_patch_id;
+	}
 }
 
 bool onBoundary(patch_t ms_patches, int vert, int patch_id, std::vector<int> &vert_patch_ids,
@@ -990,8 +1013,6 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 	
 	vector<int> patches_bndry;
 
-	std::ofstream tmp("../temp.txt");
-
 	for (int patch_id = 0; patch_id < ms_patches->size(); patch_id++) {
 		vector<int> patch_nodes = ms_patches->at(patch_id);
 		vector<int> visited;
@@ -1001,11 +1022,15 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 		// find patch_bndry
 
 		for (int v_idx = 0; v_idx < vert_patch_ids.size(); v_idx++) {
-			if (vert_patch_ids[v_idx] == patch_id) {
+			if (vert_patch_ids[v_idx] == patch_id ){
 				if (onBoundary(ms_patches, v_idx, patch_id, vert_patch_ids, HE_verts, HE_edges)) {
 					patch_bndry.push_back(v_idx);
-					tmp << v_idx << ", ";
 				}
+			}
+		}
+		for (auto n_it = patch_nodes.begin(); n_it != patch_nodes.end(); ++n_it) {
+			if (onBoundary(ms_patches, *n_it, patch_id, vert_patch_ids, HE_verts, HE_edges)) {
+				patch_bndry.push_back(*n_it);
 			}
 		}
 		patches_bndry.insert(patches_bndry.end(), patch_bndry.begin(), patch_bndry.end());
@@ -1036,7 +1061,6 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 				conn_graph.coeffRef(*nb_it, *v) = 1;
 			}
 		}
-		cout << "num_nb_conn: " << num_nb_conn << endl;
 	}
 
 	// find new sls
@@ -1048,9 +1072,6 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 				new_sls.find({ next_node_v, node_v }) == new_sls.end()) {
 				std::shared_ptr<std::vector<int>> path = PathFinding::getPath(node_v, next_node_v, conn_graph);
 				new_sls[{node_v, next_node_v}] = *path;
-				if (path != nullptr) {
-					cout << "not null" << endl;
-				}
 			}
 			
 		}
@@ -1059,5 +1080,189 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 
 	steep_lines_t ptr = std::make_shared<std::map<std::pair<int, int>, std::vector<int>>>(new_sls);
 	std::swap(ptr, *steeplines);
-	tmp.close();
+}
+
+void insertSl2v(std::map<int, std::vector<int>> &sl_out_of_v, int start, int end) {
+	if (sl_out_of_v.find(start) == sl_out_of_v.end()) {
+		sl_out_of_v[start] = std::vector<int>(1, end);
+	}
+	else {
+		sl_out_of_v[start].push_back(end);
+	}
+}
+
+bool is_sl_rev(steep_lines_t steeplines, int start_vert, int end_vert) {
+	auto sl_it = steeplines->find({ start_vert, end_vert });
+	if (sl_it != steeplines->end()) {
+		return false;
+	}
+	else {
+		return true;
+	}
+}
+
+void goToNextElem(std::vector<int>::iterator &it, bool rev) {
+	if (rev) {
+		it--;
+	}
+	else {
+		it++;
+	}
+}
+
+std::vector<int>::iterator getStartIt(std::vector<int> *sl, bool rev) {
+	if (rev) {
+		return (*sl).end() - 2;
+	}
+	else {
+		// start at second elem, first always same
+		return (*sl).begin() + 1;
+	}
+}
+
+void relocateNode(std::vector<std::vector<int> *> sl_ptrs, std::vector<bool> revs, 
+	int node_old_loc, int node_new_loc) {
+
+}
+
+void ComplexUtil::relocateNodes(steep_lines_t steeplines, patch_t ms_patches, 
+	std::vector<int> &nodes, std::vector<int> &vert_patch_ids) {
+	// get steeplines going out of a node
+	std::map<int, std::vector<int>> sl_out_of_v;
+	// map between current node and new node
+	std::map<int, int> old_new_node;
+
+	for (auto sl_it = steeplines->begin(); sl_it != steeplines->end(); ++sl_it) {
+		int start = sl_it->first.first;
+		int end = sl_it->first.second;
+		insertSl2v(sl_out_of_v, start, end);
+		insertSl2v(sl_out_of_v, end, start);
+	}
+
+	// check for overlap steeplines going out of a node
+	for (auto node_it = nodes.begin(); node_it != nodes.end(); ++node_it) {
+		vector<int> &ends = sl_out_of_v[*node_it];
+		std::vector<std::vector<int> *> sl_ptrs(ends.size());
+		std::vector<bool> revs(ends.size());
+		// indices correspond to ends, min steps
+		std::vector<int> min_steps_on_sl(ends.size(), 0);
+		// indices correspond to ends, contens are the end ids that it overlaps with
+		vector<vector<int>> overlap_ids(ends.size(), std::vector<int>({}));
+
+		int e_id = 0;
+		for (auto e_it = ends.begin(); e_it != ends.end(); ++e_it) {
+			// end has been relocated
+			if (old_new_node.find(*e_it) != old_new_node.end()) {
+				*e_it = old_new_node[*e_it];
+			}
+			bool rev = is_sl_rev(steeplines, *node_it, *e_it);
+			if (rev) {
+				sl_ptrs[e_id] = &steeplines->at({*e_it, *node_it});
+			}
+			else {
+				sl_ptrs[e_id] = &steeplines->at({ *node_it, *e_it });
+			}
+			revs[e_id] = rev;
+			e_id++;
+		}
+		
+		// compare every pair of sls going out of node
+		for (int i = 0; i < ends.size() - 1; i++) {
+			bool rev_i = revs[i];
+			std::vector<int>::iterator start_i_it = getStartIt(sl_ptrs[i], rev_i);
+			for (int j = i + 1; j < ends.size(); j++) {
+				bool rev_j = revs[j];
+				std::vector<int>::iterator start_j_it = getStartIt(sl_ptrs[j], rev_j);
+
+				int steps_along_sl = 0;
+				// start comparing, ASSUME two sls never overlap completely
+				while (*start_i_it == *start_j_it) {
+					steps_along_sl++;
+					// get to next elem
+					goToNextElem(start_i_it, rev_i);
+					goToNextElem(start_j_it, rev_j);
+				}
+				// if there is overlap
+				if (steps_along_sl > 0) {
+					if (min_steps_on_sl[i] == 0 || steps_along_sl < min_steps_on_sl[i]) {
+						min_steps_on_sl[i] = steps_along_sl;
+					}
+					if (min_steps_on_sl[j] == 0 || steps_along_sl < min_steps_on_sl[j]) {
+						min_steps_on_sl[j] = steps_along_sl;
+					}
+					overlap_ids[i].push_back(j);
+					overlap_ids[j].push_back(i);
+				}
+			}
+		}
+		
+		int min_steps = 0;
+		int move_sl_end_id = 0;
+		for (int i = 0; i < ends.size(); i++) {
+			if (min_steps_on_sl[i] > 0 && (min_steps == 0 || min_steps_on_sl[i] < min_steps)) {
+				min_steps = min_steps_on_sl[i];
+				move_sl_end_id = i;
+			}
+		}
+
+		if (min_steps > 0) {
+			bool move_sl_rev = revs[move_sl_end_id];
+			auto it = getStartIt(sl_ptrs[move_sl_end_id], move_sl_rev);
+			vector<int> overlapped(min_steps);
+			for (int i = 0; i < min_steps; i++) {
+				overlapped[i] = *it;
+				goToNextElem(it, move_sl_rev);
+			}
+			// relocate node
+			for (int i = 0; i < ends.size(); i++) {
+				bool rev = revs[i];
+				// if sl contains overlapped portion
+				if (i == move_sl_end_id || 
+					std::find(overlap_ids[i].begin(), overlap_ids[i].end(), move_sl_end_id) != overlap_ids[i].end()) {
+					if (!rev) {
+						sl_ptrs[i]->erase(sl_ptrs[i]->begin(), sl_ptrs[i]->begin() + min_steps);
+					}
+					else {
+						sl_ptrs[i]->erase(sl_ptrs[i]->end() - min_steps, sl_ptrs[i]->end());
+					}
+					
+				} 
+				// if sl does not contain overlapped portion
+				else {
+					vector<int> rev_overlapped = overlapped;
+					std::reverse(rev_overlapped.begin(), rev_overlapped.end());
+					if (!rev) {
+						sl_ptrs[i]->insert(sl_ptrs[i]->begin(), rev_overlapped.begin(), rev_overlapped.end());
+					}
+					else {
+						sl_ptrs[i]->insert(sl_ptrs[i]->end(), overlapped.begin(), overlapped.end());
+					}
+				}
+			}
+			// update ms_patches
+			int new_node = *(overlapped.end() - 1);
+			updatePatchNode(ms_patches, *node_it, new_node, vert_patch_ids, -1);
+			// update steeplines
+			int e_id = 0;
+			for (int i = 0; i < ends.size(); i++) {
+				int end = ends[i];
+				bool rev = is_sl_rev(steeplines, *node_it, end);
+				if (rev) {
+					(*steeplines)[{end, new_node}] = steeplines->at({ end, *node_it });
+					steeplines->erase({ end, *node_it });
+				}
+				else {
+					(*steeplines)[{new_node, end}] = steeplines->at({ *node_it, end });
+					steeplines->erase({ *node_it, end });
+				}
+			}
+			// update nodes
+			old_new_node[*node_it] = new_node;
+			//*node_it = new_node;
+		}
+	}
+	for (auto n_it = old_new_node.begin(); n_it != old_new_node.end(); ++n_it) {
+		auto node_it = std::find(nodes.begin(), nodes.end(), n_it->first);
+		*node_it = n_it->second;
+	}
 }

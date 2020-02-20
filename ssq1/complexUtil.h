@@ -1,6 +1,7 @@
 #include <memory>
 #include <vector>
 #include <tuple>
+#include <set>
 #include "HalfEdge.h"
 #pragma once
 
@@ -48,7 +49,7 @@ namespace ComplexUtil {
 	//// return vectors, each is [patch1, patch2, patch3, patch3]
 	//patch_t buildPatchGraph(steep_lines_t sl_patch_map, patch_t ms_patches);
 
-	std::shared_ptr<Eigen::MatrixXd> solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids,
+	std::shared_ptr<Eigen::MatrixXd> solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids, 
 		ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map, int node_num, patch_t ms_patches,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 
@@ -67,4 +68,7 @@ namespace ComplexUtil {
 		std::vector<int> &vert_patch_ids, patch_t ms_patches,
 		steep_lines_t *steeplines,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
+
+	void relocateNodes(steep_lines_t steeplines, patch_t ms_patches,
+		std::vector<int> &nodes, std::vector<int> &vert_patch_ids);
 }
