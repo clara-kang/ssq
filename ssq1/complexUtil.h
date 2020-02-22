@@ -50,7 +50,7 @@ namespace ComplexUtil {
 	//patch_t buildPatchGraph(steep_lines_t sl_patch_map, patch_t ms_patches);
 
 	std::shared_ptr<Eigen::MatrixXd> solveForCoords(Eigen::SparseMatrix<double> &L, std::vector<int> &vert_patch_ids, 
-		ComplexUtil::trnsfr_funcs_map_t trnsfr_funcs_map, int node_num, patch_t ms_patches,
+		trnsfr_funcs_map_t trnsfr_funcs_map, int node_num, patch_t ms_patches,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 
 	bool isPatchNode(patch_t ms_patches, int vert_idx, int patch_id);
@@ -64,11 +64,10 @@ namespace ComplexUtil {
 		std::shared_ptr<Eigen::MatrixXd> uvs, std::shared_ptr<vector<vector<int>>> patch_verts,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 
-	void retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_ptr, 
-		std::vector<int> &vert_patch_ids, patch_t ms_patches,
-		steep_lines_t *steeplines,
+	void buildNode2PatchesMap(patch_t ms_patches, map<int, set<int>> &node2patch);
+
+	void retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
+		std::vector<int> &vert_patch_ids, patch_t ms_patches, map<int, set<int>> &node2patch,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 
-	void relocateNodes(steep_lines_t steeplines, patch_t ms_patches,
-		std::vector<int> &nodes, std::vector<int> &vert_patch_ids);
 }

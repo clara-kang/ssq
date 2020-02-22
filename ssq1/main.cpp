@@ -41,6 +41,11 @@ vector<int> getPatchNodes(ComplexUtil::patch_t ms_patches) {
 	return patch_nodes_v;
 }
 
+void setNodesToNeg(vector<int> &patch_nodes_v, std::vector<int> &vert_patch_ids) {
+	for (auto node_it = patch_nodes_v.begin(); node_it != patch_nodes_v.end(); ++node_it) {
+		vert_patch_ids[*node_it] = -1;
+	}
+}
 int main(int argc, char *argv[])
 {
 
@@ -165,9 +170,7 @@ int main(int argc, char *argv[])
 		patch_cnt++;
 	}
 
-	for (auto node_it = patch_nodes_v.begin(); node_it != patch_nodes_v.end(); ++node_it) {
-		vert_patch_ids[*node_it] = -1;
-	}
+	setNodesToNeg(patch_nodes_v, vert_patch_ids);
 
 	std::shared_ptr<Eigen::MatrixXd> uv_coords;
 	if (!LOAD_UV) {
@@ -202,21 +205,18 @@ int main(int argc, char *argv[])
 	ComplexUtil::adjustBndrys(vert_patch_ids, steeplines, patch_graph, trnsfr_funcs_map,
 		uv_coords, patch_verts, HE_verts, HE_edges);
 
+	map<int, set<int>> node2patch;
+	ComplexUtil::buildNode2PatchesMap(ms_patches, node2patch);
+
 	ComplexUtil::retraceSteepLines(vertices_ptr, vert_patch_ids, ms_patches, 
-		&steeplines, HE_verts, HE_edges);
+		node2patch, HE_verts, HE_edges);
 
 	// gather nodes
 	patch_nodes_v = getPatchNodes(ms_patches);
-
-	ComplexUtil::relocateNodes(steeplines, ms_patches,
-		patch_nodes_v, vert_patch_ids);
-
-	//for (auto node_it = patch_nodes_v.begin(); node_it != patch_nodes_v.end(); ++node_it) {
-	//	vert_patch_ids[*node_it] = -1;
-	//}
+	setNodesToNeg(patch_nodes_v, vert_patch_ids);
 	
-	//uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
-	//	HE_verts, HE_edges);
+	uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
+		HE_verts, HE_edges);
 
 	//------------------------------------------------------------------//
 	// write patch verts out
