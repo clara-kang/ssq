@@ -59,7 +59,7 @@ namespace ComplexUtil {
 
 	void applyTrnsfrFunc(Eigen::Vector2d &initial_uv, Eigen::Vector2d &res_uv, trnsfr_func_t trnsfr_func);
 
-	void adjustBndrys(std::vector<int> &vert_patch_ids, steep_lines_t steeplines,
+	void adjustBndrys(std::vector<int> &vert_patch_ids, patch_t ms_patches,
 		patch_t patch_graph, trnsfr_funcs_map_t trnsfr_functions,
 		std::shared_ptr<Eigen::MatrixXd> uvs, std::shared_ptr<vector<vector<int>>> patch_verts,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);

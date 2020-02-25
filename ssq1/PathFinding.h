@@ -5,6 +5,7 @@
 #include <memory>
 #include <map>
 #include <Eigen/SparseExtra>
+#include "HalfEdge.h"
 
 std::shared_ptr<std::vector<int>> trace_path(std::map<int, int> &prevs, int src_v, int dest_v) {
 	std::vector<int> path;
@@ -66,6 +67,26 @@ std::shared_ptr<std::vector<int>> getSubPath(int src_v, int dest_v, Eigen::Spars
 	return nullptr;
 }
 
+bool getPathToPatchRec(int start, int &dst, std::vector<int> &vert_patch_ids, int dest_patch_id,
+	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges,
+	vector<int> &work_list, map<int, int> &prevs) {
+
+	HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(start, HE_verts, HE_edges);
+
+	for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
+		if (vert_patch_ids[*nb_it] == dest_patch_id) {
+			prevs[*nb_it] = start;
+			dst = *nb_it;
+			return true;
+		}
+		if (prevs.find(*nb_it) == prevs.end()) {
+			prevs[*nb_it] = start;
+			work_list.push_back(*nb_it);
+		}
+	}
+	return false;
+}
+
 namespace PathFinding {
 	std::shared_ptr<std::vector<int>> getPath(int src_v, int dest_v, std::vector<std::vector<int>> &conn_map) {
 
@@ -100,4 +121,25 @@ namespace PathFinding {
 		return nullptr;
 
 	}
+
+	void getPathToPatch(int start, std::vector<int> &vert_patch_ids, int dest_patch_id,
+		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, vector<int> &path) {
+
+		int dest;
+		map<int, int> prevs;
+		vector<int> work_list;
+
+		work_list.push_back(start);
+		while (work_list.size() > 0) {
+			int next_start = work_list[0];
+			work_list.erase(work_list.begin());
+			if (getPathToPatchRec(next_start, dest, vert_patch_ids, dest_patch_id,
+				HE_verts, HE_edges, work_list, prevs)) {
+
+				path = *(trace_path(prevs, start, dest));
+				return;
+			}
+		}
+	}
 }
+

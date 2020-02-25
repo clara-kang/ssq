@@ -202,21 +202,27 @@ int main(int argc, char *argv[])
 		uv_coords = std::make_shared<Eigen::MatrixXd>(uv);
 	}
 
-	ComplexUtil::adjustBndrys(vert_patch_ids, steeplines, patch_graph, trnsfr_funcs_map,
-		uv_coords, patch_verts, HE_verts, HE_edges);
+	for (int i = 0; i < 2; i++) {
 
-	map<int, set<int>> node2patch;
-	ComplexUtil::buildNode2PatchesMap(ms_patches, node2patch);
+		ComplexUtil::adjustBndrys(vert_patch_ids, ms_patches, patch_graph, trnsfr_funcs_map,
+			uv_coords, patch_verts, HE_verts, HE_edges);
 
-	ComplexUtil::retraceSteepLines(vertices_ptr, vert_patch_ids, ms_patches, 
-		node2patch, HE_verts, HE_edges);
+		if (i == 1) {
+			break;
+		}
 
-	// gather nodes
-	patch_nodes_v = getPatchNodes(ms_patches);
-	setNodesToNeg(patch_nodes_v, vert_patch_ids);
-	
-	uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
-		HE_verts, HE_edges);
+		map<int, set<int>> node2patch;
+		ComplexUtil::buildNode2PatchesMap(ms_patches, node2patch);
+
+		ComplexUtil::retraceSteepLines(vertices_ptr, vert_patch_ids, ms_patches,
+			node2patch, HE_verts, HE_edges);
+
+		// gather nodes
+		patch_nodes_v = getPatchNodes(ms_patches);
+		setNodesToNeg(patch_nodes_v, vert_patch_ids);
+		uv_coords = ComplexUtil::solveForCoords(L, vert_patch_ids, trnsfr_funcs_map, node_num, ms_patches,
+			HE_verts, HE_edges);
+	}
 
 	//------------------------------------------------------------------//
 	// write patch verts out
@@ -395,8 +401,8 @@ int main(int argc, char *argv[])
 					cout << "error! " << endl;
 				}
 			}
-			clamp(uv(0), 0, 1);
-			clamp(uv(1), 0, 1);
+			//clamp(uv(0), 0, 1);
+			//clamp(uv(1), 0, 1);
 			tcs_out.row(face_id * 3 + i) = uv;
 		}
 	}
