@@ -807,8 +807,8 @@ bool inRange(Eigen::Vector2d uv) {
 //}
 
 bool inRangeInPath(std::shared_ptr<Eigen::MatrixXd> uvs, Eigen::Vector2d &uv, int cur_patch_id, int target_patch_id,
-	patch_t patch_graph, trnsfr_funcs_map_t trnsfr_functions) {
-	Eigen::Vector2d uv_in_other;
+	patch_t patch_graph, trnsfr_funcs_map_t trnsfr_functions, Eigen::Vector2d &uv_in_other) {
+
 	if (trnsfr_functions->find({ cur_patch_id, target_patch_id }) == trnsfr_functions->end()) {
 		cout << cur_patch_id << ", " << target_patch_id << endl;
 		// transfer function not constructed, append it now, should be rare
@@ -888,8 +888,10 @@ void ComplexUtil::adjustBndrys(std::vector<int> &vert_patch_ids, patch_t ms_patc
 				// nb is not in the same patch as front, see if can be assimilated
 				if (nb_patch_id != patch_id) {
 					Eigen::Vector2d cur_uv = uvs->row(*nb_it);
-					if (!inRange(cur_uv) && inRangeInPath(uvs, cur_uv, nb_patch_id, patch_id, patch_graph, trnsfr_functions)) {
+					Eigen::Vector2d uv_in_other;
+					if (!inRange(cur_uv) && inRangeInPath(uvs, cur_uv, nb_patch_id, patch_id, patch_graph, trnsfr_functions, uv_in_other)) {
 						vert_patch_ids[*nb_it] = patch_id;
+						uvs->row(*nb_it) = uv_in_other;
 						front.push_back(*nb_it);
 						checked[*nb_it] = true;
 					}
@@ -973,8 +975,15 @@ void assignOldNode2Paches(int old_node, std::vector<int> &vert_patch_ids,
 	vert_patch_ids[old_node] = to_assign_patch;
 }
 
-void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
+//int which_node(int node, int patch_id, patch_t ms_patches) {
+//	vector<int> &nodes = ms_patches->at(patch_id);
+//	auto it = std::find(nodes.begin(), nodes.end(), node);
+//	return std::distance(nodes.begin(), it);
+//}
+
+void ComplexUtil::relocatePatchNodes(std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
 	std::vector<int> &vert_patch_ids, patch_t ms_patches, map<int, set<int>> &node2patch,
+	std::shared_ptr< Eigen::MatrixXd> uv_coords,
 	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges) {
 
 	for (auto node_it = node2patch.begin(); node_it != node2patch.end(); ++node_it) {
@@ -990,7 +999,7 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 			bool node_found = false;
 			std::vector<int> worklist(*HalfEdge::getNeighbors(node_it->first, HE_verts, HE_edges));
 			vector<int> visited;
-			int second_best_node = -1;
+			vector<int> second_best_nodes;
 			int intsct_w_adj = 0;
 			set<int> max_touched_patches;
 
@@ -1004,6 +1013,7 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 				visited.push_back(node);
 				// this node valid, relocate
 				if (nodeValid(adj_patches, node, vert_patch_ids, HE_verts, HE_edges, touched_patches)) {
+					
 					relocateNode(node2patch, ms_patches, vert_patch_ids, node_it->first, node);
 					assignOldNode2Paches(node_it->first, vert_patch_ids, HE_verts, HE_edges);
 					node_found = true;
@@ -1019,9 +1029,14 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 					}
 					if (intersect > intsct_w_adj) {
 						max_touched_patches = touched_patches;
-						second_best_node = node;
 						intsct_w_adj = intersect;
+						second_best_nodes.clear();
+						second_best_nodes.push_back(node);
 					}
+					else if (intersect == intsct_w_adj) {
+						second_best_nodes.push_back(node);
+					}
+
 					HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(node, HE_verts, HE_edges);
 					for (auto nb_it = neighbors->begin(); nb_it != neighbors->end(); ++nb_it) {
 						if (std::find(visited.begin(), visited.end(), *nb_it) == visited.end()) {
@@ -1031,6 +1046,39 @@ void ComplexUtil::retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_pt
 				}
 			}
 			if (!node_found) {
+				// find best among second_best_nodes
+				int second_best_node;
+				double best_dist = 100;
+				for (int sb_node : second_best_nodes) {
+					// find the patch the node belongs to
+					int sb_n_patch = vert_patch_ids[sb_node];
+					if (sb_n_patch == -1) {
+						second_best_node = sb_node;
+						break;
+					}
+					int node_idx =	which_node(ms_patches->at(sb_n_patch), node_it->first);
+					Eigen::Vector2d node_coord;
+					if (node_idx == 0) {
+						node_coord << 0, 0;
+					}
+					else if (node_idx == 1) {
+						node_coord << 1, 0;
+					}
+					else if (node_idx == 2) {
+						node_coord << 1, 1;
+					}
+					else {
+						node_coord << 0, 1;
+					}
+					Eigen::Vector2d v = (uv_coords->row(sb_node));
+					double dist = (v-node_coord).norm();
+					//int dist = 1;
+					if (dist < best_dist) {
+						best_dist = dist;
+						second_best_node = sb_node;
+					}
+				}
+
 				cout << "second_best_node: " << second_best_node << endl;
 				
 				// find path from second_best_node to the patch not touched

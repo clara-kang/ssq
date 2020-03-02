@@ -66,8 +66,9 @@ namespace ComplexUtil {
 
 	void buildNode2PatchesMap(patch_t ms_patches, map<int, set<int>> &node2patch);
 
-	void retraceSteepLines(std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
+	void relocatePatchNodes(std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
 		std::vector<int> &vert_patch_ids, patch_t ms_patches, map<int, set<int>> &node2patch,
+		std::shared_ptr< Eigen::MatrixXd> uv_coords,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges);
 
 }
