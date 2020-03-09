@@ -24,6 +24,11 @@ namespace ComplexUtil {
 	steep_lines_t findSteepLines(HalfEdge::vert_t saddles, vert_type_t vert_types,
 		HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, Eigen::MatrixXd &U);
 
+	void filterSteepLines(steep_lines_t steepLines, Eigen::MatrixXd &U, vert_type_t vert_types, 
+		HalfEdge::vert_t maxs, HalfEdge::vert_t mins, HalfEdge::vert_t sdls);
+	void smoothU(HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges,
+		Eigen::MatrixXd &U, Eigen::MatrixXd &U_smooth);
+
 	patch_t buildMsPatches(steep_lines_t steeplines, std::shared_ptr<Eigen::MatrixXd> vertices_ptr,
 		std::shared_ptr<Eigen::MatrixXd> vns_ptr);
 

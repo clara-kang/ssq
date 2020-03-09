@@ -152,6 +152,142 @@ int findNext(HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, Eigen::Matrix
 
 }
 
+void ComplexUtil::smoothU(HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges,
+	Eigen::MatrixXd &U, Eigen::MatrixXd &U_smooth) {
+	for (int v_idx = 0; v_idx < U.rows(); v_idx++) {
+		
+		HalfEdge::vert_t neighbors = HalfEdge::getNeighbors(v_idx, HE_verts, HE_edges);
+		set<int> nbs(neighbors->begin(), neighbors->end());
+
+		for (int i = 0; i < 1; i++) {
+			set<int> nb_next_ring;
+			for (int nb : nbs) {
+				HalfEdge::vert_t nb_nbs = HalfEdge::getNeighbors(nb, HE_verts, HE_edges);
+				for (int nb_nb : *nb_nbs) {
+					nb_next_ring.insert(nb_nb);
+				}
+			}
+			nbs = nb_next_ring;
+		}
+
+		double sum = 0;
+		for (int nb : nbs) {
+			sum += U(nb);
+		}
+		U_smooth(v_idx) = sum / (nbs.size());
+	}
+
+}
+
+int getOtherExtrm(steep_lines_t steepLines, int this_idx, int conn_idx, 
+	vert_type_t vert_types, ComplexUtil::VERT_TYPE conn_type) {
+	for (auto sl_it = steepLines->begin(); sl_it != steepLines->end(); ++sl_it) {
+		int first_vidx = sl_it->first.first;
+		int second_vidx = sl_it->first.second;
+		for (int i = 0; i < 2; i++) {
+			// found the saddle
+			if (first_vidx == this_idx) {
+				// found the other extrem
+				if (second_vidx != conn_idx && vert_types->at(second_vidx) == conn_type) {
+					return second_vidx;
+				}
+			}
+			std::swap(first_vidx, second_vidx);
+		}
+	}
+}
+
+vector<int> &find_sl(steep_lines_t steeplines, int start_vert, int end_vert, bool *reversed);
+
+vector<int> getPath(steep_lines_t steepLines, int start_v, int end_v) {
+	bool rev;
+	vector<int> path = find_sl(steepLines, start_v, end_v, &rev);
+	if (rev) {
+		std::reverse(path.begin(), path.end());
+	}
+	return path;
+}
+
+int removeVertPaths(steep_lines_t steepLines, int v_idx) {
+	int cnt = 0;
+	for (auto sl_it = steepLines->begin(); sl_it != steepLines->end();) {
+		if (sl_it->first.first == v_idx || sl_it->first.second == v_idx) {
+			steepLines->erase(sl_it++);
+			cnt++;
+		}
+		else
+		{
+			++sl_it;
+		}
+	}
+	return cnt;
+}
+
+void removeFromVector(vector<int> &v, int el) {
+	auto it = std::find(v.begin(), v.end(), el);
+	v.erase(it);
+}
+
+void ComplexUtil::filterSteepLines(steep_lines_t steepLines, Eigen::MatrixXd &U, vert_type_t vert_types, 
+	HalfEdge::vert_t maxs, HalfEdge::vert_t mins, HalfEdge::vert_t sdls) {
+	double noise_threshold = 0.15;
+	std::map<std::pair<int, int>, std::vector<int>> tmp_sl_map;
+
+	bool pair_rmvd = true;
+
+	while (pair_rmvd) {
+		pair_rmvd = false;
+		for (auto sl_it = steepLines->begin(); sl_it != steepLines->end(); ++sl_it) {
+			// print diff in U between start and end
+			//double diff = abs(U(sl_it->first.first) - U(sl_it->first.second));
+			double sl_len = sl_it->second.size();
+			//if (diff < noise_threshold) {
+			if (sl_len < 3) {
+				ComplexUtil::VERT_TYPE xtrm_type = vert_types->at(sl_it->first.first);
+				ComplexUtil::VERT_TYPE type2 = vert_types->at(sl_it->first.second);
+				int sdl_idx = sl_it->first.second, extrm_idx = sl_it->first.first;
+				// type 1 is max / min
+				if (xtrm_type == ComplexUtil::SADDLE) {
+					std::swap(xtrm_type, type2);
+					std::swap(sdl_idx, extrm_idx);
+				}
+
+				// find the other extreme saddle is connected to
+				int other_extrm = getOtherExtrm(steepLines, sdl_idx, extrm_idx, vert_types, xtrm_type);
+				int other_sdl = getOtherExtrm(steepLines, extrm_idx, sdl_idx, vert_types, ComplexUtil::SADDLE);
+
+				vector<int> new_path;
+				vector<vector<int>> segs(3);
+				segs[0] = getPath(steepLines, other_sdl, extrm_idx);
+				segs[1] = getPath(steepLines, extrm_idx, sdl_idx);
+				segs[2] = getPath(steepLines, sdl_idx, other_extrm);
+				for (int i = 0; i < 3; i++) {
+					new_path.insert(new_path.end(), segs[i].begin(), segs[i].end());
+				}
+
+				tmp_sl_map[{other_sdl, other_extrm}] = new_path;
+				// remove the pair
+				steepLines->erase(sl_it);
+				// remove other paths incident to the saddle
+				removeVertPaths(steepLines, sdl_idx);
+				removeVertPaths(steepLines, extrm_idx);
+				
+				removeFromVector((*sdls), sdl_idx);
+				if (xtrm_type == ComplexUtil::MAX) {
+					removeFromVector((*maxs), extrm_idx);
+				}
+				else {
+					removeFromVector((*mins), extrm_idx);
+				}
+				pair_rmvd = true;
+				break;
+			}
+			//cout << "diff: " << diff << endl;
+		}
+	}
+	steepLines->insert(tmp_sl_map.begin(), tmp_sl_map.end());
+}
+
 steep_lines_t ComplexUtil::findSteepLines(HalfEdge::vert_t saddles, vert_type_t vert_types,
 	HalfEdge::vert_t HE_verts, HalfEdge::edge_t HE_edges, Eigen::MatrixXd &U) {
 
@@ -425,7 +561,7 @@ void ComplexUtil::fillMsPatches(steep_lines_t steeplines, patch_t ms_patches,
 
 		vector<int> patch_verts;
 		vector<bool> visited(vertices_ptr->rows(), false);
-		cout << "inside_vert: " << inside_vert << endl;
+		
 		graphSearchRec(steeplines, inside_vert, HE_vert, HE_edges,
 			*patch_it, patch_verts, visited);
 		patches_vertices[cnt] = patch_verts;
@@ -500,7 +636,7 @@ steep_lines_t ComplexUtil::buildSLtoPatchMap(steep_lines_t steeplines, patch_t m
 
 int which_line(std::vector<int> &patch, int start, int end) {
 	for (int i = 0; i < 4; i++) {
-		if (patch[i] == start && patch[(i + 1) % 4 == end]) {
+		if (patch[i] == start && patch[(i + 1) % 4] == end) {
 			return i;
 		}
 	}
@@ -786,8 +922,9 @@ std::shared_ptr<Eigen::MatrixXd> ComplexUtil::solveForCoords(Eigen::SparseMatrix
 	return uv_coords_ptr;
 }
 
+// equal sign??
 bool inRange(Eigen::Vector2d uv) {
-	return (uv(0) >= 0 && uv(0) <= 1 && uv(1) >= 0 && uv(1) <= 1);
+	return (uv(0) >= 0 && uv(0) < 1 && uv(1) >= 0 && uv(1) < 1);
 }
 
 //void swapBtwnPatches(int v_idx, std::vector<int> &vert_patch_ids,
